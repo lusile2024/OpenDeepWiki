@@ -4,14 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
-import type * as PageTree from "fumadocs-core/page-tree";
 import type { RepoTreeNode, RepoBranchesResponse } from "@/types/repository";
 import { BranchLanguageSelector } from "./branch-language-selector";
 import { fetchRepoTree, fetchRepoBranches } from "@/lib/repository-api";
 import { Network, Download } from "lucide-react";
 import { ChatAssistant, buildCatalogMenu } from "@/components/chat";
 import { useTranslations } from "@/hooks/use-translations";
-import { buildRepoBasePath, buildRepoDocPath, buildRepoMindMapPath } from "@/lib/repo-route";
+import { buildRepoBasePath, buildRepoMindMapPath } from "@/lib/repo-route";
+import { buildRepoPageTree, normalizeQueryString } from "@/lib/repo-page-tree";
 
 interface RepoShellProps {
   owner: string;
@@ -21,52 +21,6 @@ interface RepoShellProps {
   initialBranches?: RepoBranchesResponse;
   initialBranch?: string;
   initialLanguage?: string;
-}
-
-/**
- * 将 RepoTreeNode 转换为 fumadocs PageTree.Node
- */
-function convertToPageTreeNode(
-  node: RepoTreeNode,
-  owner: string,
-  repo: string,
-  queryString: string
-): PageTree.Node {
-  const baseUrl = buildRepoDocPath(owner, repo, node.slug);
-  // 链接需要带上查询参数以保持 branch 和 lang 状态
-  const url = queryString ? `${baseUrl}?${queryString}` : baseUrl;
-
-  if (node.children && node.children.length > 0) {
-    return {
-      type: "folder",
-      name: node.title,
-      url,
-      children: node.children.map((child) =>
-        convertToPageTreeNode(child, owner, repo, queryString)
-      ),
-    } as PageTree.Folder;
-  }
-
-  return {
-    type: "page",
-    name: node.title,
-    url,
-  } as PageTree.Item;
-}
-
-/**
- * 将 RepoTreeNode[] 转换为 fumadocs PageTree.Root
- */
-function convertToPageTree(
-  nodes: RepoTreeNode[],
-  owner: string,
-  repo: string,
-  queryString: string
-): PageTree.Root {
-  return {
-    name: `${owner}/${repo}`,
-    children: nodes.map((node) => convertToPageTreeNode(node, owner, repo, queryString)),
-  };
 }
 
 export function RepoShell({ 
@@ -149,7 +103,7 @@ export function RepoShell({
   }, [urlBranch, urlLang, owner, repo, currentBranch, currentLanguage]);
 
   // 构建查询字符串 - 优先使用 URL 参数，确保链接始终保持当前 URL 的参数
-  const queryString = searchParams.toString();
+  const queryString = normalizeQueryString(searchParams.toString());
 
   // 构建思维导图链接
   const mindMapUrl = queryString 
@@ -201,7 +155,7 @@ export function RepoShell({
     }
   };
 
-  const tree = convertToPageTree(nodes, owner, repo, queryString);
+  const tree = buildRepoPageTree(nodes, owner, repo, queryString);
   const title = `${owner}/${repo}`;
 
   // 构建侧边栏顶部的选择器和操作按钮
