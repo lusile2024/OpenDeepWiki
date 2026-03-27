@@ -136,7 +136,7 @@ export default function AuthPage() {
                   <Zap className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">{t("authUi.fastSearch")}</h3>
+                  <h3 className="font-semibold mb-1">{t("authUi.features.fastSearch")}</h3>
                   <p className="text-sm text-muted-foreground">
                     {t("authUi.features.fastSearchDesc")}
                   </p>

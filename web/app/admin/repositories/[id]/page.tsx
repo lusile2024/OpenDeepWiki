@@ -30,6 +30,7 @@ import {
   History,
   AlertTriangle,
   Sparkles,
+  Route,
   Pencil,
   Save,
   X,
@@ -37,6 +38,8 @@ import {
 import { toast } from "sonner";
 import { useTranslations } from "@/hooks/use-translations";
 import { useLocale } from "next-intl";
+import { RepositoryOverlayPanel } from "@/components/admin/repository-overlay-panel";
+import { RepositoryWorkflowPanel } from "@/components/admin/repository-workflow-panel";
 import {
   AdminIncrementalTask,
   AdminRepository,
@@ -969,7 +972,7 @@ export default function AdminRepositoryManagementPage() {
       </Card>
 
       <Tabs defaultValue="docs" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2 gap-2 md:grid-cols-6">
           <TabsTrigger value="branches" className="transition-all data-[state=active]:shadow-sm">
             <GitBranch className="mr-2 h-4 w-4" />
             {t("admin.repositories.management.tabs.branches")}
@@ -993,6 +996,14 @@ export default function AdminRepositoryManagementPage() {
             <span className="ml-1 rounded bg-muted px-1.5 text-[10px] leading-4">
               {management.recentIncrementalTasks.length}
             </span>
+          </TabsTrigger>
+          <TabsTrigger value="overlay" className="transition-all data-[state=active]:shadow-sm">
+            <Sparkles className="mr-2 h-4 w-4" />
+            Overlay
+          </TabsTrigger>
+          <TabsTrigger value="workflow" className="transition-all data-[state=active]:shadow-sm">
+            <Route className="mr-2 h-4 w-4" />
+            Workflow规则
           </TabsTrigger>
         </TabsList>
 
@@ -1490,6 +1501,23 @@ export default function AdminRepositoryManagementPage() {
               )}
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="overlay" className="mt-4 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+          <RepositoryOverlayPanel repositoryId={repositoryId} />
+        </TabsContent>
+
+        <TabsContent value="workflow" className="mt-4 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+          <RepositoryWorkflowPanel
+            repositoryId={repositoryId}
+            repositoryOwner={repository?.orgName}
+            repositoryName={repository?.repoName}
+            branches={management?.branches ?? []}
+            selectedBranchId={selectedBranchId}
+            selectedLanguage={selectedLanguage}
+            onBranchChange={handleBranchChange}
+            onLanguageChange={handleLanguageChange}
+          />
         </TabsContent>
       </Tabs>
     </div>

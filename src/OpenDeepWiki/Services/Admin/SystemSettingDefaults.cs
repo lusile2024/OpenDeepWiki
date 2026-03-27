@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using OpenDeepWiki.Agents;
 using OpenDeepWiki.EFCore;
 using OpenDeepWiki.Entities;
+using OpenDeepWiki.Infrastructure;
 using OpenDeepWiki.Services.Wiki;
 
 namespace OpenDeepWiki.Services.Admin;
@@ -113,7 +114,7 @@ public static class SystemSettingDefaults
     private static string? GetEnvironmentOrConfigurationValue(IConfiguration configuration, string key)
     {
         // Prefer environment variable
-        var envValue = Environment.GetEnvironmentVariable(key);
+        var envValue = EnvironmentValueResolver.Get(key);
         if (!string.IsNullOrWhiteSpace(envValue))
         {
             return envValue;

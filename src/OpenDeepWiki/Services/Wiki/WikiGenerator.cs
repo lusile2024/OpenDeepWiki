@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Anthropic.Models.Messages;
 using AIDotNet.Toon;
@@ -72,9 +73,19 @@ public class WikiGenerator : IWikiGenerator
     private readonly ILogger<WikiGenerator> _logger;
     private readonly IProcessingLogService _processingLogService;
     private readonly ISkillToolConverter _skillToolConverter;
+    private readonly IWorkflowDiscoveryService _workflowDiscoveryService;
+    private readonly WorkflowCatalogAugmenter _workflowCatalogAugmenter;
+    private readonly WorkflowTopicContextService _workflowTopicContextService;
+    private readonly WorkflowDocumentRouteResolver _workflowDocumentRouteResolver;
+    private readonly WorkflowDiscoveryOptions _workflowDiscoveryOptions;
 
     // Use AsyncLocal for thread-safe repository ID tracking in concurrent scenarios
     private static readonly AsyncLocal<string?> _currentRepositoryId = new();
+    private static readonly JsonSerializerOptions CatalogJsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     /// <summary>
     /// Initializes a new instance of WikiGenerator.
@@ -85,6 +96,11 @@ public class WikiGenerator : IWikiGenerator
         IOptions<WikiGeneratorOptions> options,
         IContext context,
         IContextFactory contextFactory,
+        IWorkflowDiscoveryService workflowDiscoveryService,
+        WorkflowCatalogAugmenter workflowCatalogAugmenter,
+        WorkflowTopicContextService workflowTopicContextService,
+        WorkflowDocumentRouteResolver workflowDocumentRouteResolver,
+        IOptions<WorkflowDiscoveryOptions> workflowDiscoveryOptions,
         ILogger<WikiGenerator> logger,
         IProcessingLogService processingLogService,
         ISkillToolConverter skillToolConverter)
@@ -94,6 +110,11 @@ public class WikiGenerator : IWikiGenerator
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
+        _workflowDiscoveryService = workflowDiscoveryService ?? throw new ArgumentNullException(nameof(workflowDiscoveryService));
+        _workflowCatalogAugmenter = workflowCatalogAugmenter ?? throw new ArgumentNullException(nameof(workflowCatalogAugmenter));
+        _workflowTopicContextService = workflowTopicContextService ?? throw new ArgumentNullException(nameof(workflowTopicContextService));
+        _workflowDocumentRouteResolver = workflowDocumentRouteResolver ?? throw new ArgumentNullException(nameof(workflowDocumentRouteResolver));
+        _workflowDiscoveryOptions = workflowDiscoveryOptions?.Value ?? throw new ArgumentNullException(nameof(workflowDiscoveryOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _processingLogService = processingLogService ?? throw new ArgumentNullException(nameof(processingLogService));
         _skillToolConverter = skillToolConverter ?? throw new ArgumentNullException(nameof(skillToolConverter));
@@ -268,6 +289,13 @@ Execute the workflow now. Read entry point files to understand the architecture,
                 tools,
                 "CatalogGeneration",
                 ProcessingStep.Catalog,
+                cancellationToken);
+
+            await RefreshWorkflowCatalogAsync(
+                workspace,
+                branchLanguage,
+                catalogStorage,
+                null,
                 cancellationToken);
 
             stopwatch.Stop();
@@ -482,6 +510,81 @@ Execute the workflow now. Read entry point files to understand the architecture,
     }
 
     /// <inheritdoc />
+    public async Task RegenerateWorkflowDocumentsAsync(
+        RepositoryWorkspace workspace,
+        BranchLanguage branchLanguage,
+        string? profileKey = null,
+        CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        await LogProcessingAsync(
+            ProcessingStep.Catalog,
+            $"开始重建业务流程目录 ({branchLanguage.LanguageCode})",
+            cancellationToken);
+
+        var catalogStorage = new CatalogStorage(_context, branchLanguage.Id);
+        var candidates = await RefreshWorkflowCatalogAsync(
+            workspace,
+            branchLanguage,
+            catalogStorage,
+            profileKey,
+            cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(profileKey) && candidates.Count == 0)
+        {
+            throw new InvalidOperationException($"未找到指定业务流 profile 对应的流程候选：{profileKey}");
+        }
+
+        await LogProcessingAsync(
+            ProcessingStep.Content,
+            $"开始重建业务流程文档，候选数: {candidates.Count}",
+            cancellationToken);
+
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            var candidate = candidates[index];
+            var progress = $"{index + 1}/{candidates.Count}";
+            var completionStatus = "成功";
+
+            await LogProcessingAsync(
+                ProcessingStep.Content,
+                $"开始重建业务流程 ({progress}): {candidate.Name}",
+                cancellationToken);
+
+            try
+            {
+                await GenerateDocumentContentAsync(
+                    workspace,
+                    branchLanguage,
+                    $"business-workflows/{candidate.Key}",
+                    candidate.Name,
+                    cancellationToken);
+            }
+            catch
+            {
+                completionStatus = "失败";
+                throw;
+            }
+            finally
+            {
+                await LogProcessingAsync(
+                    ProcessingStep.Content,
+                    $"业务流程文档完成 ({progress}): {candidate.Name} - {completionStatus}",
+                    cancellationToken);
+            }
+        }
+
+        stopwatch.Stop();
+        await LogProcessingAsync(
+            ProcessingStep.Complete,
+            string.IsNullOrWhiteSpace(profileKey)
+                ? $"全部业务流程重建完成，流程数: {candidates.Count}，耗时 {stopwatch.ElapsedMilliseconds}ms"
+                : $"当前业务流程重建完成，profile: {profileKey}，流程数: {candidates.Count}，耗时 {stopwatch.ElapsedMilliseconds}ms",
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task IncrementalUpdateAsync(
         RepositoryWorkspace workspace,
         BranchLanguage branchLanguage,
@@ -584,6 +687,26 @@ Please start executing the task.";
                 ProcessingStep.Content,
                 cancellationToken);
 
+            if (ShouldRefreshWorkflowDiscovery(changedFiles))
+            {
+                var workflowCandidates = await RefreshWorkflowCatalogAsync(
+                    workspace,
+                    branchLanguage,
+                    catalogStorage,
+                    null,
+                    cancellationToken);
+
+                foreach (var candidate in workflowCandidates)
+                {
+                    await GenerateDocumentContentAsync(
+                        workspace,
+                        branchLanguage,
+                        $"business-workflows/{candidate.Key}",
+                        candidate.Name,
+                        cancellationToken);
+                }
+            }
+
             stopwatch.Stop();
             _logger.LogInformation(
                 "Incremental update completed successfully. Repository: {Org}/{Repo}, Language: {Language}, Duration: {Duration}ms",
@@ -621,16 +744,14 @@ Please start executing the task.";
         {
             // 构建文件引用的基础URL
             var gitBaseUrl = BuildGitFileBaseUrl(workspace.GitUrl, workspace.BranchName);
+            var documentRoute = await _workflowDocumentRouteResolver.ResolveAsync(
+                branchLanguage.Id,
+                catalogPath,
+                cancellationToken);
 
             var prompt = await _promptPlugin.LoadPromptAsync(
-                "content-generator",
-                new Dictionary<string, string>
-                {
-                    ["repository_name"] = $"{workspace.Organization}/{workspace.RepositoryName}",
-                    ["language"] = branchLanguage.LanguageCode,
-                    ["catalog_path"] = catalogPath,
-                    ["catalog_title"] = catalogTitle
-                },
+                documentRoute.PromptName,
+                BuildPromptVariables(workspace, branchLanguage, catalogPath, catalogTitle, documentRoute.Candidate),
                 cancellationToken);
 
             var gitTool = new GitTool(workspace.WorkingDirectory);
@@ -639,7 +760,15 @@ Please start executing the task.";
                 gitTool.GetTools().Concat(docTool.GetTools()),
                 cancellationToken);
 
-            var userMessage = $@"Please generate Wiki document content for catalog item ""{catalogTitle}"" (path: {catalogPath}).
+            var userMessage = documentRoute.IsWorkflow
+                ? BuildWorkflowDocumentUserMessage(
+                    workspace,
+                    branchLanguage,
+                    catalogPath,
+                    catalogTitle,
+                    gitBaseUrl,
+                    documentRoute.Candidate!)
+                : $@"Please generate Wiki document content for catalog item ""{catalogTitle}"" (path: {catalogPath}).
 
 ## Repository Information
 
@@ -730,6 +859,16 @@ Please start executing the task.";
                 ProcessingStep.Content,
                 cancellationToken);
 
+            if (documentRoute.IsWorkflow && documentRoute.Candidate is not null)
+            {
+                await EnsureWorkflowRequiredSectionsAsync(
+                    context,
+                    branchLanguage.Id,
+                    catalogPath,
+                    documentRoute.Candidate.DocumentPreferences,
+                    cancellationToken);
+            }
+
             stopwatch.Stop();
             _logger.LogInformation(
                 "Document content generation completed. Path: {Path}, Title: {Title}, Duration: {Duration}ms",
@@ -745,6 +884,300 @@ Please start executing the task.";
         }
     }
 
+
+    /// <summary>
+    /// 刷新 workflow 发现结果、目录增强和 topic context。
+    /// </summary>
+    private async Task<List<WorkflowTopicCandidate>> RefreshWorkflowCatalogAsync(
+        RepositoryWorkspace workspace,
+        BranchLanguage branchLanguage,
+        CatalogStorage catalogStorage,
+        string? profileKey,
+        CancellationToken cancellationToken)
+    {
+        if (!_workflowDiscoveryOptions.Enabled)
+        {
+            return [];
+        }
+
+        try
+        {
+            var discoveryResult = await _workflowDiscoveryService.DiscoverAsync(workspace, cancellationToken: cancellationToken);
+            var catalogCandidates = discoveryResult.Candidates
+                .Where(candidate => candidate.Score >= _workflowDiscoveryOptions.MinScore)
+                .OrderByDescending(candidate => candidate.Score)
+                .ThenBy(candidate => candidate.Name, StringComparer.Ordinal)
+                .ToList();
+
+            List<WorkflowTopicCandidate> generationCandidates;
+            if (string.IsNullOrWhiteSpace(profileKey))
+            {
+                generationCandidates = catalogCandidates;
+            }
+            else
+            {
+                var targetedResult = await _workflowDiscoveryService.DiscoverAsync(
+                    workspace,
+                    profileKey,
+                    cancellationToken);
+                var targetedCandidates = targetedResult.Candidates
+                    .Where(candidate => candidate.Score >= _workflowDiscoveryOptions.MinScore)
+                    .OrderByDescending(candidate => candidate.Score)
+                    .ThenBy(candidate => candidate.Name, StringComparer.Ordinal)
+                    .Where(candidate => string.Equals(candidate.Key, profileKey, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                generationCandidates = targetedCandidates;
+                catalogCandidates = MergeWorkflowCandidates(catalogCandidates, targetedCandidates);
+            }
+
+            await _workflowTopicContextService.ClearBranchAsync(branchLanguage.Id, cancellationToken);
+
+            var catalogJson = await catalogStorage.GetCatalogJsonAsync(cancellationToken);
+            var root = JsonSerializer.Deserialize<CatalogRoot>(catalogJson, CatalogJsonOptions) ?? new CatalogRoot();
+            var mergedRoot = _workflowCatalogAugmenter.Merge(root, catalogCandidates);
+            await catalogStorage.SetCatalogAsync(JsonSerializer.Serialize(mergedRoot, CatalogJsonOptions), cancellationToken);
+
+            if (catalogCandidates.Count > 0)
+            {
+                await _workflowTopicContextService.UpsertWorkflowContextsAsync(
+                    branchLanguage.Id,
+                    catalogCandidates.Select(candidate => new WorkflowTopicContextItem
+                    {
+                        CatalogPath = $"business-workflows/{candidate.Key}",
+                        Candidate = candidate
+                    }),
+                    cancellationToken);
+            }
+
+            await LogProcessingAsync(
+                ProcessingStep.Catalog,
+                string.IsNullOrWhiteSpace(profileKey)
+                    ? $"workflow 发现完成，候选流程数: {catalogCandidates.Count}"
+                    : $"workflow 发现完成，目录候选数: {catalogCandidates.Count}，当前重建目标: {profileKey}",
+                cancellationToken: cancellationToken);
+
+            return generationCandidates;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Workflow discovery refresh failed for repository {Organization}/{Repository}.",
+                workspace.Organization,
+                workspace.RepositoryName);
+            return [];
+        }
+    }
+
+    private static List<WorkflowTopicCandidate> MergeWorkflowCandidates(
+        IReadOnlyCollection<WorkflowTopicCandidate> primaryCandidates,
+        IReadOnlyCollection<WorkflowTopicCandidate> extraCandidates)
+    {
+        var merged = new Dictionary<string, WorkflowTopicCandidate>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in primaryCandidates)
+        {
+            merged[candidate.Key] = candidate;
+        }
+
+        foreach (var candidate in extraCandidates)
+        {
+            merged[candidate.Key] = candidate;
+        }
+
+        return merged.Values
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenBy(candidate => candidate.Name, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private Dictionary<string, string> BuildPromptVariables(
+        RepositoryWorkspace workspace,
+        BranchLanguage branchLanguage,
+        string catalogPath,
+        string catalogTitle,
+        WorkflowTopicCandidate? candidate)
+    {
+        return new Dictionary<string, string>
+        {
+            ["repository_name"] = $"{workspace.Organization}/{workspace.RepositoryName}",
+            ["language"] = branchLanguage.LanguageCode,
+            ["catalog_path"] = catalogPath,
+            ["catalog_title"] = catalogTitle,
+            ["workflow_summary"] = candidate?.Summary ?? string.Empty,
+            ["workflow_trigger_points"] = string.Join("\n", candidate?.TriggerPoints ?? []),
+            ["workflow_compensation_trigger_points"] = string.Join("\n", candidate?.CompensationTriggerPoints ?? []),
+            ["workflow_request_entities"] = string.Join("\n", candidate?.RequestEntities ?? []),
+            ["workflow_scheduler_files"] = string.Join("\n", candidate?.SchedulerFiles ?? []),
+            ["workflow_executor_files"] = string.Join("\n", candidate?.ExecutorFiles ?? []),
+            ["workflow_service_files"] = string.Join("\n", candidate?.ServiceFiles ?? []),
+            ["workflow_evidence_files"] = string.Join("\n", candidate?.EvidenceFiles ?? []),
+            ["workflow_seed_queries"] = string.Join("\n", candidate?.SeedQueries ?? []),
+            ["workflow_external_systems"] = string.Join("\n", candidate?.ExternalSystems ?? []),
+            ["workflow_state_fields"] = string.Join("\n", candidate?.StateFields ?? []),
+            ["workflow_document_preferences"] = FormatWorkflowDocumentPreferences(candidate?.DocumentPreferences)
+        };
+    }
+
+    private static string BuildWorkflowDocumentUserMessage(
+        RepositoryWorkspace workspace,
+        BranchLanguage branchLanguage,
+        string catalogPath,
+        string catalogTitle,
+        string gitBaseUrl,
+        WorkflowTopicCandidate candidate)
+    {
+        return $@"Please generate a workflow-focused Wiki document for ""{catalogTitle}"" (path: {catalogPath}).
+
+## Repository Information
+
+- Repository: {workspace.Organization}/{workspace.RepositoryName}
+- Git URL: {workspace.GitUrl}
+- Branch: {workspace.BranchName}
+- File Reference Base URL: {gitBaseUrl}
+- Target Language: {branchLanguage.LanguageCode}
+
+## Workflow Context
+
+- Summary: {candidate.Summary}
+- Primary Trigger Points: {string.Join(", ", candidate.TriggerPoints)}
+- Compensation Trigger Points: {string.Join(", ", candidate.CompensationTriggerPoints)}
+- Request Entities: {string.Join(", ", candidate.RequestEntities)}
+- External Systems: {string.Join(", ", candidate.ExternalSystems)}
+- State Fields: {string.Join(", ", candidate.StateFields)}
+
+## Documentation Preferences
+
+{FormatWorkflowDocumentPreferences(candidate.DocumentPreferences)}
+
+## Required Focus
+
+1. Reconstruct the end-to-end business path instead of describing a single module.
+2. Explain:
+   - how the primary request enters the system
+   - where the request is persisted
+   - how scheduler/worker code scans or polls it
+   - how executor/factory dispatch works
+   - what status transitions happen
+   - how success/failure/retry is handled
+3. Treat Compensation Trigger Points only as retry or operational entry points when they exist.
+4. Do not describe compensation controllers as the main business trigger unless the evidence explicitly proves they are the only entry.
+5. Read the evidence files first, then expand with nearby source files as needed.
+6. Include at least one Mermaid flowchart or sequence diagram.
+7. If Required Sections are configured, you MUST create one dedicated Markdown section for each required section and keep the heading text unchanged.
+8. When evidence is incomplete, keep the required section anyway and explicitly mark unknown or pending points instead of omitting the section.
+9. Use WriteDoc(content) to write the final document.
+
+## Evidence Files
+{string.Join("\n", candidate.EvidenceFiles.Select(path => $"- {path}"))}
+
+## Seed Queries
+{string.Join("\n", candidate.SeedQueries.Select(query => $"- {query}"))}
+
+Please start executing the task.";
+    }
+
+    private static string FormatWorkflowDocumentPreferences(WorkflowDocumentPreferences? preferences)
+    {
+        preferences ??= new WorkflowDocumentPreferences();
+        var lines = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(preferences.WritingHint))
+        {
+            lines.Add($"- Writing Hint: {preferences.WritingHint}");
+        }
+
+        if (preferences.PreferredTerms.Count > 0)
+        {
+            lines.Add("- Preferred Terms:");
+            lines.AddRange(preferences.PreferredTerms.Select(term => $"  - {term}"));
+        }
+
+        if (preferences.RequiredSections.Count > 0)
+        {
+            lines.Add("- Required Sections (MUST keep exact section headings):");
+            lines.AddRange(preferences.RequiredSections.Select(section => $"  - {section}"));
+        }
+
+        if (preferences.AvoidPrimaryTriggerNames.Count > 0)
+        {
+            lines.Add("- Avoid As Primary Trigger:");
+            lines.AddRange(preferences.AvoidPrimaryTriggerNames.Select(name => $"  - {name}"));
+        }
+
+        return lines.Count == 0 ? "- (none)" : string.Join("\n", lines);
+    }
+
+    private async Task EnsureWorkflowRequiredSectionsAsync(
+        IContext context,
+        string branchLanguageId,
+        string catalogPath,
+        WorkflowDocumentPreferences preferences,
+        CancellationToken cancellationToken)
+    {
+        if (preferences.RequiredSections.Count == 0)
+        {
+            return;
+        }
+
+        var catalog = await context.DocCatalogs
+            .FirstOrDefaultAsync(
+                item => item.BranchLanguageId == branchLanguageId &&
+                        item.Path == catalogPath &&
+                        !item.IsDeleted,
+                cancellationToken);
+
+        if (catalog is null || string.IsNullOrWhiteSpace(catalog.DocFileId))
+        {
+            _logger.LogWarning(
+                "Workflow document required section enforcement skipped because catalog/doc reference was not found. Path: {Path}, BranchLanguageId: {BranchLanguageId}",
+                catalogPath,
+                branchLanguageId);
+            return;
+        }
+
+        var docFile = await context.DocFiles
+            .FirstOrDefaultAsync(
+                item => item.Id == catalog.DocFileId && !item.IsDeleted,
+                cancellationToken);
+
+        if (docFile is null)
+        {
+            _logger.LogWarning(
+                "Workflow document required section enforcement skipped because doc file was not found. Path: {Path}, DocFileId: {DocFileId}",
+                catalogPath,
+                catalog.DocFileId);
+            return;
+        }
+
+        var enforcementResult = WorkflowRequiredSectionEnforcer.Enforce(docFile.Content, preferences);
+        if (enforcementResult.MissingSections.Count == 0)
+        {
+            return;
+        }
+
+        docFile.Content = enforcementResult.Content;
+        docFile.UpdateTimestamp();
+        await context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Appended missing required workflow sections for {Path}: {Sections}",
+            catalogPath,
+            string.Join(", ", enforcementResult.MissingSections));
+    }
+
+    private bool ShouldRefreshWorkflowDiscovery(string[] changedFiles)
+    {
+        if (!_workflowDiscoveryOptions.Enabled || !_workflowDiscoveryOptions.RefreshOnIncrementalCodeChanges)
+        {
+            return false;
+        }
+
+        return changedFiles.Any(file =>
+            _workflowDiscoveryOptions.CodeChangeExtensions.Any(extension =>
+                file.EndsWith(extension, StringComparison.OrdinalIgnoreCase)));
+    }
 
     /// <summary>
     /// Combines base tools with configured Skill tools for wiki generation workflows.

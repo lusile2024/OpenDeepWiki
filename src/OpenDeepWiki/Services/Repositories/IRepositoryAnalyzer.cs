@@ -60,6 +60,11 @@ public interface IRepositoryAnalyzer
 public class RepositoryWorkspace
 {
     /// <summary>
+    /// The repository entity ID.
+    /// </summary>
+    public string RepositoryId { get; set; } = string.Empty;
+
+    /// <summary>
     /// The absolute path to the working directory containing the repository files.
     /// Format: /data/{organization}/{name}/tree/
     /// </summary>

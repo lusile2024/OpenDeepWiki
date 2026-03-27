@@ -118,35 +118,33 @@ public class RepositoryDocsService(IContext context, IGitPlatformService gitPlat
             };
         }
 
-        // 仓库正在处理中或等待处理
-        if (repository.Status == RepositoryStatus.Pending || repository.Status == RepositoryStatus.Processing)
-        {
-            return new RepositoryTreeResponse
-            {
-                Owner = repository.OrgName,
-                Repo = repository.RepoName,
-                Exists = true,
-                Status = repository.Status,
-                Nodes = []
-            };
-        }
-
-        // 仓库处理失败
-        if (repository.Status == RepositoryStatus.Failed)
-        {
-            return new RepositoryTreeResponse
-            {
-                Owner = repository.OrgName,
-                Repo = repository.RepoName,
-                Exists = true,
-                Status = repository.Status,
-                Nodes = []
-            };
-        }
-
-        // 仓库处理完成，获取文档目录
         var branchEntity = await GetBranchAsync(repository.Id, branch);
+        if (branchEntity is null)
+        {
+            return new RepositoryTreeResponse
+            {
+                Owner = repository.OrgName,
+                Repo = repository.RepoName,
+                Exists = true,
+                Status = repository.Status,
+                Nodes = []
+            };
+        }
+
         var language = await GetLanguageAsync(branchEntity.Id, lang);
+        if (language is null)
+        {
+            return new RepositoryTreeResponse
+            {
+                Owner = repository.OrgName,
+                Repo = repository.RepoName,
+                Exists = true,
+                Status = repository.Status,
+                Nodes = [],
+                CurrentBranch = branchEntity.BranchName,
+                CurrentLanguage = string.Empty
+            };
+        }
 
         var catalogs = await context.DocCatalogs
             .AsNoTracking()
@@ -163,7 +161,9 @@ public class RepositoryDocsService(IContext context, IGitPlatformService gitPlat
                 Repo = repository.RepoName,
                 Exists = true,
                 Status = repository.Status,
-                Nodes = []
+                Nodes = [],
+                CurrentBranch = branchEntity.BranchName,
+                CurrentLanguage = language.LanguageCode
             };
         }
 

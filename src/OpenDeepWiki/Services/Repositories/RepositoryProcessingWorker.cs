@@ -207,6 +207,15 @@ public class RepositoryProcessingWorker(
         {
             stoppingToken.ThrowIfCancellationRequested();
 
+            // Skip virtual overlay branches (generated docs only, not real Git branches).
+            if (branch.BranchName.StartsWith("overlay/", StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogDebug(
+                    "Skipping virtual overlay branch {BranchName} for repository {Org}/{Repo}",
+                    branch.BranchName, repository.OrgName, repository.RepoName);
+                continue;
+            }
+
             await ProcessBranchAsync(
                 repository,
                 branch,

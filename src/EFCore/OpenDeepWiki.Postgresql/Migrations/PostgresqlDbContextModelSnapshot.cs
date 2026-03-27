@@ -787,6 +787,122 @@ namespace OpenDeepWiki.Postgresql.Migrations
                     b.ToTable("DocFiles");
                 });
 
+            modelBuilder.Entity("OpenDeepWiki.Entities.DocTopicContext", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BranchLanguageId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("CatalogPath")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ContextJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TopicKind")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchLanguageId", "CatalogPath")
+                        .IsUnique();
+
+                    b.ToTable("DocTopicContexts");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.GitHubAppInstallation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<long>("AccountId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("AccountLogin")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("AccountType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("CachedAccessToken")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DepartmentId")
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("DepartmentId1")
+                        .HasColumnType("text");
+
+                    b.Property<long>("InstallationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("TokenExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("DepartmentId1");
+
+                    b.HasIndex("InstallationId")
+                        .IsUnique();
+
+                    b.ToTable("GitHubAppInstallations");
+                });
+
             modelBuilder.Entity("OpenDeepWiki.Entities.IncrementalUpdateTask", b =>
                 {
                     b.Property<string>("Id")
@@ -1412,6 +1528,9 @@ namespace OpenDeepWiki.Postgresql.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsDepartmentOwned")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsPublic")
                         .HasColumnType("boolean");
 
@@ -1462,7 +1581,9 @@ namespace OpenDeepWiki.Postgresql.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OwnerUserId", "OrgName", "RepoName")
+                    b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("OrgName", "RepoName")
                         .IsUnique();
 
                     b.ToTable("Repositories");
@@ -2390,6 +2511,217 @@ namespace OpenDeepWiki.Postgresql.Migrations
                     b.ToTable("UserSubscriptions");
                 });
 
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateDraftVersion", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("BasedOnVersionNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ChangeSummary")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DraftJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EvidenceFilesJson")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RiskNotesJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ValidationIssuesJson")
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowTemplateDraftVersions");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateMessage", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ChangeSummary")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("MessageTimestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
+                    b.Property<int?>("VersionNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "MessageTimestamp");
+
+                    b.HasIndex("SessionId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowTemplateMessages");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateSession", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("AdoptedVersionNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("BranchId")
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("BranchName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ContextJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("CreatedByUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("CurrentDraftKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("CurrentDraftName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("CurrentVersionNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LanguageCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MessageCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RepositoryId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RepositoryId", "LastActivityAt");
+
+                    b.ToTable("WorkflowTemplateSessions");
+                });
+
             modelBuilder.Entity("OpenDeepWiki.Entities.BranchLanguage", b =>
                 {
                     b.HasOne("OpenDeepWiki.Entities.RepositoryBranch", "RepositoryBranch")
@@ -2455,6 +2787,31 @@ namespace OpenDeepWiki.Postgresql.Migrations
                         .IsRequired();
 
                     b.Navigation("BranchLanguage");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.DocTopicContext", b =>
+                {
+                    b.HasOne("OpenDeepWiki.Entities.BranchLanguage", "BranchLanguage")
+                        .WithMany()
+                        .HasForeignKey("BranchLanguageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BranchLanguage");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.GitHubAppInstallation", b =>
+                {
+                    b.HasOne("OpenDeepWiki.Entities.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("OpenDeepWiki.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId1");
+
+                    b.Navigation("Department");
                 });
 
             modelBuilder.Entity("OpenDeepWiki.Entities.IncrementalUpdateTask", b =>
@@ -2720,6 +3077,39 @@ namespace OpenDeepWiki.Postgresql.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateDraftVersion", b =>
+                {
+                    b.HasOne("OpenDeepWiki.Entities.WorkflowTemplateSession", "Session")
+                        .WithMany("Versions")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateMessage", b =>
+                {
+                    b.HasOne("OpenDeepWiki.Entities.WorkflowTemplateSession", "Session")
+                        .WithMany("Messages")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateSession", b =>
+                {
+                    b.HasOne("OpenDeepWiki.Entities.Repository", "Repository")
+                        .WithMany()
+                        .HasForeignKey("RepositoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Repository");
+                });
+
             modelBuilder.Entity("OpenDeepWiki.Entities.ChatSession", b =>
                 {
                     b.Navigation("Messages");
@@ -2728,6 +3118,13 @@ namespace OpenDeepWiki.Postgresql.Migrations
             modelBuilder.Entity("OpenDeepWiki.Entities.DocCatalog", b =>
                 {
                     b.Navigation("Children");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateSession", b =>
+                {
+                    b.Navigation("Messages");
+
+                    b.Navigation("Versions");
                 });
 #pragma warning restore 612, 618
         }

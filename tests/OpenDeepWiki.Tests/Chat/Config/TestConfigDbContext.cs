@@ -26,6 +26,7 @@ public class TestConfigDbContext : DbContext, IContext
     public DbSet<BranchLanguage> BranchLanguages { get; set; } = null!;
     public DbSet<DocFile> DocFiles { get; set; } = null!;
     public DbSet<DocCatalog> DocCatalogs { get; set; } = null!;
+    public DbSet<DocTopicContext> DocTopicContexts { get; set; } = null!;
     public DbSet<RepositoryAssignment> RepositoryAssignments { get; set; } = null!;
     public DbSet<GitHubAppInstallation> GitHubAppInstallations { get; set; }
     public DbSet<UserBookmark> UserBookmarks { get; set; } = null!;
@@ -54,6 +55,9 @@ public class TestConfigDbContext : DbContext, IContext
     public DbSet<McpUsageLog> McpUsageLogs { get; set; }
     public DbSet<McpDailyStatistics> McpDailyStatistics { get; set; }
     public DbSet<ChatShareSnapshot> ChatShareSnapshots { get; set; } = default!;
+    public DbSet<WorkflowTemplateSession> WorkflowTemplateSessions { get; set; } = null!;
+    public DbSet<WorkflowTemplateMessage> WorkflowTemplateMessages { get; set; } = null!;
+    public DbSet<WorkflowTemplateDraftVersion> WorkflowTemplateDraftVersions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -16,17 +16,20 @@ public class AdminRepositoryService : IAdminRepositoryService
     private readonly IGitPlatformService _gitPlatformService;
     private readonly IRepositoryAnalyzer _repositoryAnalyzer;
     private readonly IWikiGenerator _wikiGenerator;
+    private readonly IProcessingLogService _processingLogService;
 
     public AdminRepositoryService(
         IContext context,
         IGitPlatformService gitPlatformService,
         IRepositoryAnalyzer repositoryAnalyzer,
-        IWikiGenerator wikiGenerator)
+        IWikiGenerator wikiGenerator,
+        IProcessingLogService processingLogService)
     {
         _context = context;
         _gitPlatformService = gitPlatformService;
         _repositoryAnalyzer = repositoryAnalyzer;
         _wikiGenerator = wikiGenerator;
+        _processingLogService = processingLogService;
     }
 
     public async Task<AdminRepositoryListResponse> GetRepositoriesAsync(int page, int pageSize, string? search, int? status)
@@ -587,7 +590,132 @@ public class AdminRepositoryService : IAdminRepositoryService
             return new AdminRepositoryOperationResult
             {
                 Success = false,
-                Message = $"文档重生成失败: {ex.Message}"
+                Message = FormatDocumentRegenerationError(ex)
+            };
+        }
+    }
+
+    public async Task<AdminRepositoryOperationResult> RegenerateWorkflowDocumentsAsync(
+        string id,
+        RegenerateRepositoryWorkflowRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var executionCancellationToken = CancellationToken.None;
+
+        if (string.IsNullOrWhiteSpace(request.BranchId) ||
+            string.IsNullOrWhiteSpace(request.LanguageCode))
+        {
+            return new AdminRepositoryOperationResult
+            {
+                Success = false,
+                Message = "请求参数不完整"
+            };
+        }
+
+        var repository = await _context.Repositories
+            .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, executionCancellationToken);
+        if (repository == null)
+        {
+            return new AdminRepositoryOperationResult
+            {
+                Success = false,
+                Message = "仓库不存在"
+            };
+        }
+
+        var branch = await _context.RepositoryBranches
+            .FirstOrDefaultAsync(
+                b => b.Id == request.BranchId && b.RepositoryId == id && !b.IsDeleted,
+                executionCancellationToken);
+        if (branch == null)
+        {
+            return new AdminRepositoryOperationResult
+            {
+                Success = false,
+                Message = "分支不存在"
+            };
+        }
+
+        var normalizedLanguage = request.LanguageCode.Trim();
+        var branchLanguage = await _context.BranchLanguages
+            .FirstOrDefaultAsync(
+                l => l.RepositoryBranchId == branch.Id &&
+                     !l.IsDeleted &&
+                     l.LanguageCode.ToLower() == normalizedLanguage.ToLower(),
+                executionCancellationToken);
+        if (branchLanguage == null)
+        {
+            return new AdminRepositoryOperationResult
+            {
+                Success = false,
+                Message = "语言不存在"
+            };
+        }
+
+        if (_wikiGenerator is WikiGenerator generator)
+        {
+            generator.SetCurrentRepository(repository.Id);
+        }
+
+        var failureStep = ProcessingStep.Workspace;
+
+        try
+        {
+            await _processingLogService.LogAsync(
+                repository.Id,
+                ProcessingStep.Workspace,
+                $"开始准备业务流程重建工作区，分支: {branch.BranchName}，语言: {branchLanguage.LanguageCode}",
+                cancellationToken: executionCancellationToken);
+
+            var workspace = await _repositoryAnalyzer.PrepareWorkspaceAsync(
+                repository,
+                branch.BranchName,
+                branch.LastCommitId,
+                executionCancellationToken);
+
+            try
+            {
+                await _processingLogService.LogAsync(
+                    repository.Id,
+                    ProcessingStep.Workspace,
+                    $"业务流程重建工作区准备完成，目录: {workspace.WorkingDirectory}",
+                    cancellationToken: executionCancellationToken);
+
+                failureStep = ProcessingStep.Content;
+                await _wikiGenerator.RegenerateWorkflowDocumentsAsync(
+                    workspace,
+                    branchLanguage,
+                    request.ProfileKey,
+                    executionCancellationToken);
+            }
+            finally
+            {
+                await _repositoryAnalyzer.CleanupWorkspaceAsync(workspace, executionCancellationToken);
+            }
+
+            repository.UpdateTimestamp();
+            await _context.SaveChangesAsync(executionCancellationToken);
+
+            return new AdminRepositoryOperationResult
+            {
+                Success = true,
+                Message = string.IsNullOrWhiteSpace(request.ProfileKey)
+                    ? "全部业务流程重建已完成"
+                    : $"已选正式业务流程重建已完成：{request.ProfileKey}"
+            };
+        }
+        catch (Exception ex)
+        {
+            await _processingLogService.LogAsync(
+                repository.Id,
+                failureStep,
+                $"业务流程重建失败: {ex.Message}",
+                cancellationToken: executionCancellationToken);
+
+            return new AdminRepositoryOperationResult
+            {
+                Success = false,
+                Message = FormatDocumentRegenerationError(ex)
             };
         }
     }
@@ -752,5 +880,26 @@ public class AdminRepositoryService : IAdminRepositoryService
     private static string NormalizeDocPath(string path)
     {
         return path.Trim().Trim('/');
+    }
+
+    private static string FormatDocumentRegenerationError(Exception ex)
+    {
+        if (IsMissingAiApiKeyException(ex))
+        {
+            return "文档重生成失败: 当前后端未配置 AI API Key，无法生成文档内容。请先配置 AI:ApiKey 或 CHAT_API_KEY 后重试。";
+        }
+
+        return $"文档重生成失败: {ex.Message}";
+    }
+
+    private static bool IsMissingAiApiKeyException(Exception ex)
+    {
+        if (ex is not InvalidOperationException)
+        {
+            return false;
+        }
+
+        return ex.Message.Contains("AI API key is not configured", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("未配置 AI API Key", StringComparison.OrdinalIgnoreCase);
     }
 }

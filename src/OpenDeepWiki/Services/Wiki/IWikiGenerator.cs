@@ -60,6 +60,19 @@ public interface IWikiGenerator
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Regenerates workflow-only catalog entries and documents.
+    /// Refreshes business-workflows nodes and regenerates only workflow documents.
+    /// </summary>
+    /// <param name="workspace">The prepared repository workspace.</param>
+    /// <param name="branchLanguage">The branch language to rebuild workflows for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task RegenerateWorkflowDocumentsAsync(
+        RepositoryWorkspace workspace,
+        BranchLanguage branchLanguage,
+        string? profileKey = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Performs incremental update of wiki content based on changed files.
     /// Only regenerates documents affected by the changes.
     /// </summary>

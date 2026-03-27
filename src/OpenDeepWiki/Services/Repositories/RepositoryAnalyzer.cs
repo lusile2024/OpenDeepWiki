@@ -79,6 +79,7 @@ public class RepositoryAnalyzer : IRepositoryAnalyzer
         var sourceInfo = RepositorySource.Parse(repository.GitUrl);
         var workspace = new RepositoryWorkspace
         {
+            RepositoryId = repository.Id,
             Organization = repository.OrgName,
             RepositoryName = repository.RepoName,
             BranchName = branchName,

@@ -17,6 +17,7 @@ using OpenDeepWiki.Services.MindMap;
 using OpenDeepWiki.Services.Notifications;
 using OpenDeepWiki.Services.OAuth;
 using OpenDeepWiki.Services.Organizations;
+using OpenDeepWiki.Services.Overlays;
 using OpenDeepWiki.Services.Prompts;
 using OpenDeepWiki.Services.Recommendation;
 using OpenDeepWiki.Services.Repositories;
@@ -142,17 +143,23 @@ try
         {
             if (string.IsNullOrWhiteSpace(options.ApiKey))
             {
-                options.ApiKey = builder.Configuration["CHAT_API_KEY"];
+                options.ApiKey = EnvironmentValueResolver.Resolve(
+                    EnvironmentValueResolver.Get("CHAT_API_KEY"),
+                    builder.Configuration["CHAT_API_KEY"]);
             }
 
             if (string.IsNullOrWhiteSpace(options.Endpoint))
             {
-                options.Endpoint = builder.Configuration["ENDPOINT"];
+                options.Endpoint = EnvironmentValueResolver.Resolve(
+                    EnvironmentValueResolver.Get("ENDPOINT"),
+                    builder.Configuration["ENDPOINT"]);
             }
 
             if (!options.RequestType.HasValue)
             {
-                var requestType = builder.Configuration["CHAT_REQUEST_TYPE"];
+                var requestType = EnvironmentValueResolver.Resolve(
+                    EnvironmentValueResolver.Get("CHAT_REQUEST_TYPE"),
+                    builder.Configuration["CHAT_REQUEST_TYPE"]);
                 if (Enum.TryParse<AiRequestType>(requestType, true, out var parsed))
                 {
                     options.RequestType = parsed;
@@ -184,11 +191,15 @@ try
             }
         });
     builder.Services.AddScoped<IRepositoryAnalyzer, RepositoryAnalyzer>();
+    builder.Services.AddSingleton<IOverlayIndexBuilder, OverlayIndexBuilder>();
+    builder.Services.AddScoped<IOverlayWikiService, OverlayWikiService>();
 
     // 配置 Wiki Generator
     builder.Services.AddOptions<WikiGeneratorOptions>()
         .Bind(builder.Configuration.GetSection(WikiGeneratorOptions.SectionName))
         .PostConfigure(options => WikiGeneratorOptionsConfigurator.Apply(options, builder.Configuration));
+    builder.Services.AddOptions<WorkflowDiscoveryOptions>()
+        .Bind(builder.Configuration.GetSection(WorkflowDiscoveryOptions.SectionName));
 
     // 注册 Prompt Plugin
     builder.Services.AddSingleton<IPromptPlugin>(sp =>
@@ -206,6 +217,17 @@ try
     });
 
     // 注册 Wiki Generator
+    builder.Services.AddSingleton<MsBuildWorkspaceBootstrap>();
+    builder.Services.AddSingleton<IWorkflowSemanticProvider, RoslynWorkflowSemanticProvider>();
+    builder.Services.AddSingleton<WorkflowCandidateExtractor>();
+    builder.Services.AddScoped<WorkflowCatalogAugmenter>();
+    builder.Services.AddScoped<WorkflowTopicContextService>();
+    builder.Services.AddScoped<WorkflowDocumentRouteResolver>();
+    builder.Services.AddScoped<IRepositoryWorkflowConfigService, RepositoryWorkflowConfigService>();
+    builder.Services.AddScoped<IWorkflowTemplateContextCollector, WorkflowTemplateContextCollector>();
+    builder.Services.AddScoped<IWorkflowTemplateWorkbenchAiClient, WorkflowTemplateWorkbenchAiClient>();
+    builder.Services.AddScoped<IWorkflowTemplateWorkbenchService, WorkflowTemplateWorkbenchService>();
+    builder.Services.AddScoped<IWorkflowDiscoveryService, WorkflowDiscoveryService>();
     builder.Services.AddScoped<IWikiGenerator, WikiGenerator>();
 
     // 注册缓存框架（默认内存实现）
@@ -223,6 +245,8 @@ try
     // 注册管理端服务
     builder.Services.AddScoped<IAdminStatisticsService, AdminStatisticsService>();
     builder.Services.AddScoped<IAdminRepositoryService, AdminRepositoryService>();
+    builder.Services.AddScoped<IAdminRepositoryOverlayService, AdminRepositoryOverlayService>();
+    builder.Services.AddScoped<IOverlaySuggestionService, OverlaySuggestionService>();
     builder.Services.AddScoped<IAdminUserService, AdminUserService>();
     builder.Services.AddScoped<IAdminRoleService, AdminRoleService>();
     builder.Services.AddScoped<IAdminDepartmentService, AdminDepartmentService>();

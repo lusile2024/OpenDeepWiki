@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using OpenDeepWiki.EFCore;
 using OpenDeepWiki.Entities;
@@ -10,6 +11,8 @@ namespace OpenDeepWiki.Infrastructure;
 /// </summary>
 public static class DbInitializer
 {
+    private const string SqliteMigrationHistoryTableName = "__EFMigrationsHistory";
+
     /// <summary>
     /// 初始化数据库（创建默认角色和OAuth提供商）
     /// </summary>
@@ -19,10 +22,9 @@ public static class DbInitializer
         var context = scope.ServiceProvider.GetRequiredService<IContext>();
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-        // 确保数据库已创建
         if (context is DbContext dbContext)
         {
-            await dbContext.Database.EnsureCreatedAsync();
+            await EnsureDatabaseSchemaAsync(dbContext);
         }
 
         // 初始化默认角色
@@ -36,6 +38,122 @@ public static class DbInitializer
 
         // 初始化系统设置默认值（仅在首次运行时从环境变量创建）
         await SystemSettingDefaults.InitializeDefaultsAsync(configuration, context);
+    }
+
+    private static async Task EnsureDatabaseSchemaAsync(DbContext dbContext, CancellationToken cancellationToken = default)
+    {
+        if (!dbContext.Database.IsRelational())
+        {
+            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+            return;
+        }
+
+        if (dbContext.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            await BaselineLegacySqliteMigrationsAsync(dbContext, cancellationToken);
+        }
+
+        await dbContext.Database.MigrateAsync(cancellationToken);
+    }
+
+    private static async Task BaselineLegacySqliteMigrationsAsync(DbContext dbContext, CancellationToken cancellationToken)
+    {
+        if (await SqliteMigrationHistoryExistsAsync(dbContext, cancellationToken))
+        {
+            return;
+        }
+
+        var existingTables = await GetExistingSqliteTablesAsync(dbContext, cancellationToken);
+        if (existingTables.Count == 0)
+        {
+            return;
+        }
+
+        var baselineMigrationIds = SqliteLegacyMigrationPlanner.GetBaselineMigrationIds(
+            dbContext.Database.GetMigrations(),
+            existingTables);
+
+        if (baselineMigrationIds.Count == 0)
+        {
+            return;
+        }
+
+        const string createHistoryTableSql = """
+            CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+                "MigrationId" TEXT NOT NULL CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY,
+                "ProductVersion" TEXT NOT NULL
+            );
+            """;
+
+        await dbContext.Database.ExecuteSqlRawAsync(createHistoryTableSql, cancellationToken);
+
+        var productVersion = SqliteLegacyMigrationPlanner.GetEfProductVersion();
+        foreach (var migrationId in baselineMigrationIds)
+        {
+            await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                INSERT OR IGNORE INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ({migrationId}, {productVersion});
+                """,
+                cancellationToken);
+        }
+    }
+
+    private static async Task<bool> SqliteMigrationHistoryExistsAsync(DbContext dbContext, CancellationToken cancellationToken)
+    {
+        var tableNames = await GetExistingSqliteTablesAsync(dbContext, cancellationToken, includeHistoryTable: true);
+        return tableNames.Contains(SqliteMigrationHistoryTableName, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static async Task<HashSet<string>> GetExistingSqliteTablesAsync(
+        DbContext dbContext,
+        CancellationToken cancellationToken,
+        bool includeHistoryTable = false)
+    {
+        var connection = dbContext.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = includeHistoryTable
+                ? """
+                  SELECT name
+                  FROM sqlite_master
+                  WHERE type = 'table'
+                    AND name NOT LIKE 'sqlite_%';
+                  """
+                : """
+                  SELECT name
+                  FROM sqlite_master
+                  WHERE type = 'table'
+                    AND name NOT LIKE 'sqlite_%'
+                    AND name <> '__EFMigrationsHistory';
+                  """;
+
+            var tables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (!reader.IsDBNull(0))
+                {
+                    tables.Add(reader.GetString(0));
+                }
+            }
+
+            return tables;
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
     }
 
     private static async Task InitializeAdminUserAsync(IContext context)

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using OpenDeepWiki.Agents;
+using OpenDeepWiki.Infrastructure;
 
 namespace OpenDeepWiki.Services.Wiki;
 
@@ -91,17 +92,24 @@ public static class WikiGeneratorOptionsConfigurator
 
         if (string.IsNullOrWhiteSpace(options.ApiKey))
         {
-            options.ApiKey = configuration["CHAT_API_KEY"];
+            options.ApiKey = EnvironmentValueResolver.Resolve(
+                EnvironmentValueResolver.Get("CHAT_API_KEY"),
+                configuration["CHAT_API_KEY"]);
         }
 
         if (string.IsNullOrWhiteSpace(options.Endpoint))
         {
-            options.Endpoint = configuration["ENDPOINT"];
+            options.Endpoint = EnvironmentValueResolver.Resolve(
+                EnvironmentValueResolver.Get("ENDPOINT"),
+                configuration["ENDPOINT"]);
         }
 
         if (!options.RequestType.HasValue)
         {
-            options.RequestType = TryParseRequestType(configuration["CHAT_REQUEST_TYPE"]);
+            options.RequestType = TryParseRequestType(
+                EnvironmentValueResolver.Resolve(
+                    EnvironmentValueResolver.Get("CHAT_REQUEST_TYPE"),
+                    configuration["CHAT_REQUEST_TYPE"]));
         }
 
         return options;
@@ -113,9 +121,12 @@ public static class WikiGeneratorOptionsConfigurator
         string sectionKey,
         string? fallbackValue)
     {
-        return !string.IsNullOrWhiteSpace(configuration[overrideKey])
-            ? configuration[overrideKey]
-            : !string.IsNullOrWhiteSpace(configuration[sectionKey])
+        var environmentOverride = EnvironmentValueResolver.Get(overrideKey);
+        return !string.IsNullOrWhiteSpace(environmentOverride)
+            ? environmentOverride
+            : !string.IsNullOrWhiteSpace(configuration[overrideKey])
+                ? configuration[overrideKey]
+                : !string.IsNullOrWhiteSpace(configuration[sectionKey])
                 ? configuration[sectionKey]
                 : fallbackValue;
     }
@@ -127,7 +138,8 @@ public static class WikiGeneratorOptionsConfigurator
         AiRequestType? fallbackValue,
         AiRequestType? currentValue)
     {
-        return TryParseRequestType(configuration[overrideKey])
+        return TryParseRequestType(EnvironmentValueResolver.Get(overrideKey))
+            ?? TryParseRequestType(configuration[overrideKey])
             ?? TryParseRequestType(configuration[sectionKey])
             ?? fallbackValue
             ?? currentValue;

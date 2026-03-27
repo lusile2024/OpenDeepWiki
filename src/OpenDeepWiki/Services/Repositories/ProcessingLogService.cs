@@ -121,6 +121,15 @@ public class ProcessingLogService : IProcessingLogService
                 continue;
             }
 
+            // 匹配 "开始重建业务流程文档，候选数: X" 格式
+            var workflowTotalMatch = System.Text.RegularExpressions.Regex.Match(
+                log.Message, @"开始重建业务流程文档，候选数:\s*(\d+)");
+            if (workflowTotalMatch.Success)
+            {
+                total = int.Parse(workflowTotalMatch.Groups[1].Value);
+                continue;
+            }
+
             // 匹配 "文档完成 (X/Y)" 格式（以完成为准）
             var completedMatch = System.Text.RegularExpressions.Regex.Match(
                 log.Message, @"文档完成\s*\((\d+)/(\d+)\)");
@@ -134,6 +143,19 @@ public class ProcessingLogService : IProcessingLogService
                 continue;
             }
 
+            // 匹配 "业务流程文档完成 (X/Y)" 格式（以完成为准）
+            var workflowCompletedMatch = System.Text.RegularExpressions.Regex.Match(
+                log.Message, @"业务流程文档完成\s*\((\d+)/(\d+)\)");
+            if (workflowCompletedMatch.Success)
+            {
+                completed = Math.Max(completed, int.Parse(workflowCompletedMatch.Groups[1].Value));
+                if (total == 0)
+                {
+                    total = int.Parse(workflowCompletedMatch.Groups[2].Value);
+                }
+                continue;
+            }
+
             // 匹配 "开始生成文档 (X/Y)" 或旧格式 "正在生成文档 (X/Y)" - 仅用于补全总数
             var progressMatch = System.Text.RegularExpressions.Regex.Match(
                 log.Message, @"(开始生成文档|正在生成文档)\s*\((\d+)/(\d+)\)");
@@ -142,6 +164,18 @@ public class ProcessingLogService : IProcessingLogService
                 if (total == 0)
                 {
                     total = int.Parse(progressMatch.Groups[3].Value);
+                }
+                continue;
+            }
+
+            // 匹配 "开始重建业务流程 (X/Y)" - 仅用于补全总数
+            var workflowProgressMatch = System.Text.RegularExpressions.Regex.Match(
+                log.Message, @"开始重建业务流程\s*\((\d+)/(\d+)\)");
+            if (workflowProgressMatch.Success)
+            {
+                if (total == 0)
+                {
+                    total = int.Parse(workflowProgressMatch.Groups[2].Value);
                 }
                 continue;
             }

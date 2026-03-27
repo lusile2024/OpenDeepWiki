@@ -172,6 +172,16 @@ public class RegenerateRepositoryDocumentRequest
 }
 
 /// <summary>
+/// 管理端业务流程局部重建请求
+/// </summary>
+public class RegenerateRepositoryWorkflowRequest
+{
+    public string BranchId { get; set; } = string.Empty;
+    public string LanguageCode { get; set; } = string.Empty;
+    public string? ProfileKey { get; set; }
+}
+
+/// <summary>
 /// 管理端文档内容更新请求
 /// </summary>
 public class UpdateRepositoryDocumentContentRequest

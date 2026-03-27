@@ -18,6 +18,7 @@ public interface IContext : IDisposable
     DbSet<BranchLanguage> BranchLanguages { get; set; }
     DbSet<DocFile> DocFiles { get; set; }
     DbSet<DocCatalog> DocCatalogs { get; set; }
+    DbSet<DocTopicContext> DocTopicContexts { get; set; }
     DbSet<RepositoryAssignment> RepositoryAssignments { get; set; }
     DbSet<GitHubAppInstallation> GitHubAppInstallations { get; set; }
     DbSet<UserBookmark> UserBookmarks { get; set; }
@@ -46,6 +47,9 @@ public interface IContext : IDisposable
     DbSet<McpProvider> McpProviders { get; set; }
     DbSet<McpUsageLog> McpUsageLogs { get; set; }
     DbSet<McpDailyStatistics> McpDailyStatistics { get; set; }
+    DbSet<WorkflowTemplateSession> WorkflowTemplateSessions { get; set; }
+    DbSet<WorkflowTemplateMessage> WorkflowTemplateMessages { get; set; }
+    DbSet<WorkflowTemplateDraftVersion> WorkflowTemplateDraftVersions { get; set; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
@@ -69,6 +73,7 @@ public abstract class MasterDbContext : DbContext, IContext
     public DbSet<BranchLanguage> BranchLanguages { get; set; } = null!;
     public DbSet<DocFile> DocFiles { get; set; } = null!;
     public DbSet<DocCatalog> DocCatalogs { get; set; } = null!;
+    public DbSet<DocTopicContext> DocTopicContexts { get; set; } = null!;
     public DbSet<RepositoryAssignment> RepositoryAssignments { get; set; } = null!;
     public DbSet<GitHubAppInstallation> GitHubAppInstallations { get; set; } = null!;
     public DbSet<UserBookmark> UserBookmarks { get; set; } = null!;
@@ -97,6 +102,9 @@ public abstract class MasterDbContext : DbContext, IContext
     public DbSet<McpProvider> McpProviders { get; set; } = null!;
     public DbSet<McpUsageLog> McpUsageLogs { get; set; } = null!;
     public DbSet<McpDailyStatistics> McpDailyStatistics { get; set; } = null!;
+    public DbSet<WorkflowTemplateSession> WorkflowTemplateSessions { get; set; } = null!;
+    public DbSet<WorkflowTemplateMessage> WorkflowTemplateMessages { get; set; } = null!;
+    public DbSet<WorkflowTemplateDraftVersion> WorkflowTemplateDraftVersions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -137,6 +145,48 @@ public abstract class MasterDbContext : DbContext, IContext
             .WithMany()
             .HasForeignKey(catalog => catalog.DocFileId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<DocTopicContext>()
+            .HasIndex(topic => new { topic.BranchLanguageId, topic.CatalogPath })
+            .IsUnique();
+
+        modelBuilder.Entity<DocTopicContext>()
+            .HasOne(topic => topic.BranchLanguage)
+            .WithMany()
+            .HasForeignKey(topic => topic.BranchLanguageId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowTemplateSession>()
+            .HasIndex(session => new { session.RepositoryId, session.LastActivityAt });
+
+        modelBuilder.Entity<WorkflowTemplateSession>()
+            .HasOne(session => session.Repository)
+            .WithMany()
+            .HasForeignKey(session => session.RepositoryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowTemplateMessage>()
+            .HasOne(message => message.Session)
+            .WithMany(session => session.Messages)
+            .HasForeignKey(message => message.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowTemplateMessage>()
+            .HasIndex(message => new { message.SessionId, message.SequenceNumber })
+            .IsUnique();
+
+        modelBuilder.Entity<WorkflowTemplateMessage>()
+            .HasIndex(message => new { message.SessionId, message.MessageTimestamp });
+
+        modelBuilder.Entity<WorkflowTemplateDraftVersion>()
+            .HasOne(version => version.Session)
+            .WithMany(session => session.Versions)
+            .HasForeignKey(version => version.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowTemplateDraftVersion>()
+            .HasIndex(version => new { version.SessionId, version.VersionNumber })
+            .IsUnique();
 
         // UserBookmark 唯一索引（同一用户对同一仓库只能收藏一次）
         modelBuilder.Entity<UserBookmark>()

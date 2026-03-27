@@ -76,7 +76,10 @@
     <PackageVersion Include="AWSSDK.Core" Version="4.0.0.3" />
     <PackageVersion Include="AWSSDK.S3" Version="4.0.0.3" />
     <!-- 代码分析 -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
+    <PackageVersion Include="Microsoft.Build.Locator" Version="1.7.8" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.0.0" />
     <!-- 版本控制 -->
     <PackageVersion Include="LibGit2Sharp" Version="0.31.0" />
     <PackageVersion Include="Octokit" Version="14.0.0" />

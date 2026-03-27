@@ -26,6 +26,7 @@ public class TestDbContext : DbContext, IContext
     public DbSet<BranchLanguage> BranchLanguages { get; set; } = null!;
     public DbSet<DocFile> DocFiles { get; set; } = null!;
     public DbSet<DocCatalog> DocCatalogs { get; set; } = null!;
+    public DbSet<DocTopicContext> DocTopicContexts { get; set; } = null!;
     public DbSet<RepositoryAssignment> RepositoryAssignments { get; set; } = null!;
     public DbSet<GitHubAppInstallation> GitHubAppInstallations { get; set; } = null!;
     public DbSet<UserBookmark> UserBookmarks { get; set; } = null!;
@@ -54,6 +55,9 @@ public class TestDbContext : DbContext, IContext
     public DbSet<McpUsageLog> McpUsageLogs { get; set; }
     public DbSet<McpDailyStatistics> McpDailyStatistics { get; set; }
     public DbSet<ChatShareSnapshot> ChatShareSnapshots { get; set; } = default!;
+    public DbSet<WorkflowTemplateSession> WorkflowTemplateSessions { get; set; } = null!;
+    public DbSet<WorkflowTemplateMessage> WorkflowTemplateMessages { get; set; } = null!;
+    public DbSet<WorkflowTemplateDraftVersion> WorkflowTemplateDraftVersions { get; set; } = null!;
     
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -75,6 +79,18 @@ public class TestDbContext : DbContext, IContext
             .HasOne(m => m.Session)
             .WithMany(s => s.Messages)
             .HasForeignKey(m => m.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowTemplateMessage>()
+            .HasOne(message => message.Session)
+            .WithMany(session => session.Messages)
+            .HasForeignKey(message => message.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowTemplateDraftVersion>()
+            .HasOne(version => version.Session)
+            .WithMany(session => session.Versions)
+            .HasForeignKey(version => version.SessionId)
             .OnDelete(DeleteBehavior.Cascade);
     }
     

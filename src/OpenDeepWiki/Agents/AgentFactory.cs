@@ -7,6 +7,7 @@ using OpenAI.Responses;
 using System;
 using System.ClientModel;
 using Anthropic;
+using OpenDeepWiki.Infrastructure;
 
 #pragma warning disable OPENAI001
 
@@ -143,17 +144,17 @@ namespace OpenDeepWiki.Agents
             {
                 if (string.IsNullOrWhiteSpace(resolved.ApiKey))
                 {
-                    resolved.ApiKey = Environment.GetEnvironmentVariable("CHAT_API_KEY");
+                    resolved.ApiKey = EnvironmentValueResolver.Get("CHAT_API_KEY");
                 }
 
                 if (string.IsNullOrWhiteSpace(resolved.Endpoint))
                 {
-                    resolved.Endpoint = Environment.GetEnvironmentVariable("ENDPOINT");
+                    resolved.Endpoint = EnvironmentValueResolver.Get("ENDPOINT");
                 }
 
                 if (!resolved.RequestType.HasValue)
                 {
-                    resolved.RequestType = TryParseRequestType(Environment.GetEnvironmentVariable("CHAT_REQUEST_TYPE"));
+                    resolved.RequestType = TryParseRequestType(EnvironmentValueResolver.Get("CHAT_REQUEST_TYPE"));
                 }
             }
 
@@ -178,7 +179,7 @@ namespace OpenDeepWiki.Agents
             }
 
             throw new InvalidOperationException(
-                "AI API key is not configured. Configure AI:ApiKey, CHAT_API_KEY, or a request-specific API key.");
+                "AI API key is not configured. 当前后端未配置 AI API Key。请配置 AI:ApiKey 或 CHAT_API_KEY，或在请求中传入专用 API Key。");
         }
 
         private static AiRequestType? TryParseRequestType(string? requestType)

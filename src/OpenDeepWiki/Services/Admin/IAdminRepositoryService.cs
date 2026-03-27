@@ -44,6 +44,11 @@ public interface IAdminRepositoryService
     Task<AdminRepositoryOperationResult> RegenerateDocumentAsync(string id, RegenerateRepositoryDocumentRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 管理端仅重建业务流程文档
+    /// </summary>
+    Task<AdminRepositoryOperationResult> RegenerateWorkflowDocumentsAsync(string id, RegenerateRepositoryWorkflowRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 管理端手动更新指定文档内容
     /// </summary>
     Task<AdminRepositoryOperationResult> UpdateDocumentContentAsync(string id, UpdateRepositoryDocumentContentRequest request, CancellationToken cancellationToken = default);

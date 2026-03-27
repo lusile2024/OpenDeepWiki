@@ -7,16 +7,28 @@ namespace OpenDeepWiki.Tests.Agents;
 public class AgentFactoryTests
 {
     [Fact]
-    public void CreateSimpleChatClient_ShouldThrowHelpfulException_WhenApiKeyIsMissing()
+    public void CreateSimpleChatClient_ShouldUseProcessEnvironmentFallback_WhenOptionsAreMissing()
     {
-        var factory = new AgentFactory(Options.Create(new AiRequestOptions
+        var originalApiKey = Environment.GetEnvironmentVariable("CHAT_API_KEY");
+        var originalEndpoint = Environment.GetEnvironmentVariable("ENDPOINT");
+        var originalRequestType = Environment.GetEnvironmentVariable("CHAT_REQUEST_TYPE");
+
+        try
         {
-            Endpoint = "https://example.com/v1",
-            RequestType = AiRequestType.OpenAI
-        }));
+            Environment.SetEnvironmentVariable("CHAT_API_KEY", "process-key");
+            Environment.SetEnvironmentVariable("ENDPOINT", "https://example.com/v1");
+            Environment.SetEnvironmentVariable("CHAT_REQUEST_TYPE", "OpenAI");
 
-        var exception = Assert.Throws<InvalidOperationException>(() => factory.CreateSimpleChatClient("test-model"));
+            var factory = new AgentFactory(Options.Create(new AiRequestOptions()));
+            var agent = factory.CreateSimpleChatClient("test-model");
 
-        Assert.Contains("AI API key", exception.Message);
+            Assert.NotNull(agent);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CHAT_API_KEY", originalApiKey);
+            Environment.SetEnvironmentVariable("ENDPOINT", originalEndpoint);
+            Environment.SetEnvironmentVariable("CHAT_REQUEST_TYPE", originalRequestType);
+        }
     }
 }

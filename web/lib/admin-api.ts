@@ -1,5 +1,20 @@
 import { getApiProxyUrl } from "./env";
 import { getToken } from "./auth-api";
+import type {
+  OverlayGenerationResult,
+  OverlayIndex,
+  OverlaySuggestRequest,
+  OverlaySuggestResponse,
+  RepositoryOverlayConfig,
+} from "@/types/overlay";
+import type {
+  CreateWorkflowTemplateSessionRequest,
+  RepositoryWorkflowConfig,
+  WorkflowTemplateAdoptResult,
+  WorkflowTemplateMessageRequest,
+  WorkflowTemplateSessionDetail,
+  WorkflowTemplateSessionSummary,
+} from "@/types/workflow-config";
 
 function buildApiUrl(path: string) {
   const baseUrl = getApiProxyUrl();
@@ -397,6 +412,12 @@ export interface RegenerateRepositoryDocumentPayload {
   documentPath: string;
 }
 
+export interface RegenerateRepositoryWorkflowPayload {
+  branchId: string;
+  languageCode: string;
+  profileKey?: string;
+}
+
 export interface UpdateRepositoryDocumentContentPayload {
   branchId: string;
   languageCode: string;
@@ -407,6 +428,160 @@ export interface UpdateRepositoryDocumentContentPayload {
 export async function getRepositoryManagement(id: string): Promise<AdminRepositoryManagement> {
   const url = buildApiUrl(`/api/admin/repositories/${id}/management`);
   const result = await fetchWithAuth(url);
+  return result.data;
+}
+
+// ==================== Repository Overlay Wiki API ====================
+
+export async function getRepositoryWorkflowConfig(
+  repositoryId: string
+): Promise<RepositoryWorkflowConfig> {
+  const url = buildApiUrl(`/api/admin/repositories/${repositoryId}/workflow-config`);
+  const result = await fetchWithAuth(url);
+  return result.data;
+}
+
+export async function saveRepositoryWorkflowConfig(
+  repositoryId: string,
+  config: RepositoryWorkflowConfig
+): Promise<RepositoryWorkflowConfig> {
+  const url = buildApiUrl(`/api/admin/repositories/${repositoryId}/workflow-config`);
+  const result = await fetchWithAuth(url, {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+  return result.data;
+}
+
+export async function getRepositoryWorkflowTemplateSessions(
+  repositoryId: string
+): Promise<WorkflowTemplateSessionSummary[]> {
+  const url = buildApiUrl(`/api/admin/repositories/${repositoryId}/workflow-template/sessions`);
+  const result = await fetchWithAuth(url);
+  return result.data;
+}
+
+export async function createRepositoryWorkflowTemplateSession(
+  repositoryId: string,
+  request: CreateWorkflowTemplateSessionRequest
+): Promise<WorkflowTemplateSessionDetail> {
+  const url = buildApiUrl(`/api/admin/repositories/${repositoryId}/workflow-template/sessions`);
+  const result = await fetchWithAuth(url, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+  return result.data;
+}
+
+export async function getRepositoryWorkflowTemplateSession(
+  repositoryId: string,
+  sessionId: string
+): Promise<WorkflowTemplateSessionDetail> {
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/workflow-template/sessions/${sessionId}`
+  );
+  const result = await fetchWithAuth(url);
+  return result.data;
+}
+
+export async function sendRepositoryWorkflowTemplateMessage(
+  repositoryId: string,
+  sessionId: string,
+  request: WorkflowTemplateMessageRequest
+): Promise<WorkflowTemplateSessionDetail> {
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/workflow-template/sessions/${sessionId}/messages`
+  );
+  const result = await fetchWithAuth(url, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+  return result.data;
+}
+
+export async function rollbackRepositoryWorkflowTemplateVersion(
+  repositoryId: string,
+  sessionId: string,
+  versionNumber: number
+): Promise<WorkflowTemplateSessionDetail> {
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/workflow-template/sessions/${sessionId}/versions/${versionNumber}/rollback`
+  );
+  const result = await fetchWithAuth(url, {
+    method: "POST",
+  });
+  return result.data;
+}
+
+export async function adoptRepositoryWorkflowTemplateVersion(
+  repositoryId: string,
+  sessionId: string,
+  versionNumber: number
+): Promise<WorkflowTemplateAdoptResult> {
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/workflow-template/sessions/${sessionId}/versions/${versionNumber}/adopt`
+  );
+  const result = await fetchWithAuth(url, {
+    method: "POST",
+  });
+  return result.data;
+}
+
+export async function getRepositoryOverlayConfig(
+  repositoryId: string
+): Promise<RepositoryOverlayConfig> {
+  const url = buildApiUrl(`/api/admin/repositories/${repositoryId}/overlay-config`);
+  const result = await fetchWithAuth(url);
+  return result.data;
+}
+
+export async function saveRepositoryOverlayConfig(
+  repositoryId: string,
+  config: RepositoryOverlayConfig
+): Promise<RepositoryOverlayConfig> {
+  const url = buildApiUrl(`/api/admin/repositories/${repositoryId}/overlay-config`);
+  const result = await fetchWithAuth(url, {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+  return result.data;
+}
+
+export async function previewRepositoryOverlay(
+  repositoryId: string,
+  profileKey?: string
+): Promise<OverlayIndex> {
+  const params = new URLSearchParams();
+  if (profileKey) params.set("profileKey", profileKey);
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/overlay/preview${params.toString() ? `?${params}` : ""}`
+  );
+  const result = await fetchWithAuth(url, { method: "POST" });
+  return result.data;
+}
+
+export async function suggestRepositoryOverlayConfig(
+  repositoryId: string,
+  request: OverlaySuggestRequest
+): Promise<OverlaySuggestResponse> {
+  const url = buildApiUrl(`/api/admin/repositories/${repositoryId}/overlay/suggest`);
+  const result = await fetchWithAuth(url, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+  return result.data;
+}
+
+export async function generateRepositoryOverlayWiki(
+  repositoryId: string,
+  profileKey?: string
+): Promise<OverlayGenerationResult> {
+  const params = new URLSearchParams();
+  if (profileKey) params.set("profileKey", profileKey);
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/overlay/generate${params.toString() ? `?${params}` : ""}`
+  );
+  const result = await fetchWithAuth(url, { method: "POST" });
   return result.data;
 }
 
@@ -421,6 +596,18 @@ export async function regenerateRepositoryDocument(
   data: RegenerateRepositoryDocumentPayload
 ): Promise<AdminRepositoryOperationResult> {
   const url = buildApiUrl(`/api/admin/repositories/${id}/documents/regenerate`);
+  const result = await fetchWithAuth(url, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return result.data;
+}
+
+export async function regenerateRepositoryWorkflows(
+  id: string,
+  data: RegenerateRepositoryWorkflowPayload
+): Promise<AdminRepositoryOperationResult> {
+  const url = buildApiUrl(`/api/admin/repositories/${id}/workflows/regenerate`);
   const result = await fetchWithAuth(url, {
     method: "POST",
     body: JSON.stringify(data),
