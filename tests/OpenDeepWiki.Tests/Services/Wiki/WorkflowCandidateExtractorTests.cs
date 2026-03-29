@@ -204,6 +204,46 @@ public class WorkflowCandidateExtractorTests
         Assert.DoesNotContain("helper", candidate.Key, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void ExtractCandidates_ShouldPreserveLspAssistFlagsFromActiveProfile()
+    {
+        var extractor = new WorkflowCandidateExtractor();
+        var graph = CreateContainerPalletInboundGraph(includeExternalClient: false, workflowPrefix: "ContainerPalletInbound");
+
+        var candidates = extractor.ExtractCandidates(
+            graph,
+            new RepositoryWorkflowProfile
+            {
+                Key = "container-pallet-inbound",
+                Name = "Container Pallet Inbound",
+                Mode = RepositoryWorkflowProfileMode.WcsRequestExecutor,
+                AnchorDirectories = ["Executors"],
+                AnchorNames = ["ContainerPalletInboundExecutor"],
+                PrimaryTriggerNames = ["WcsInboundController"],
+                SchedulerNames = ["ContainerPalletInboundRequestScanWorker"],
+                RequestEntityNames = ["ContainerPalletInboundRequest"],
+                RequestServiceNames = ["ContainerPalletInboundService"],
+                RequestRepositoryNames = ["IInboundRequestRepository"],
+                LspAssist = new WorkflowLspAssistOptions
+                {
+                    Enabled = true,
+                    IncludeCallHierarchy = true,
+                    RequestTimeoutMs = 15000,
+                    EnableDefinitionLookup = true,
+                    EnableReferenceLookup = true,
+                    EnablePrepareCallHierarchy = true,
+                    AdditionalEntrySymbolHints = ["ContainerPalletInboundExecutor"]
+                }
+            });
+
+        var candidate = Assert.Single(candidates);
+        Assert.True(candidate.LspAssist.EnableDefinitionLookup);
+        Assert.True(candidate.LspAssist.EnableReferenceLookup);
+        Assert.True(candidate.LspAssist.EnablePrepareCallHierarchy);
+        Assert.Equal(15000, candidate.LspAssist.RequestTimeoutMs);
+        Assert.Contains("ContainerPalletInboundExecutor", candidate.LspAssist.AdditionalEntrySymbolHints);
+    }
+
     private static WorkflowSemanticGraph CreateContainerPalletInboundGraph(bool includeExternalClient, string workflowPrefix)
     {
         var prefix = workflowPrefix.ToLowerInvariant();

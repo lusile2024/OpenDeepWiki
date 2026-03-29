@@ -261,6 +261,117 @@ public static class AdminRepositoryEndpoints
         .WithName("AdminSendRepositoryWorkflowTemplateMessage")
         .WithSummary("发送业务流模板工作台消息");
 
+        repoGroup.MapPost("/{id}/workflow-template/sessions/{sessionId}/augment", async (
+            string id,
+            string sessionId,
+            [FromBody] WorkflowTemplateAugmentRequest request,
+            [FromServices] IWorkflowTemplateAnalysisService analysisService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var result = await analysisService.AugmentCurrentDraftAsync(id, sessionId, request, cancellationToken);
+                return Results.Ok(new { success = true, data = result });
+            }
+            catch (Exception ex)
+            {
+                return MapWorkflowTemplateError(ex);
+            }
+        })
+        .WithName("AdminAugmentRepositoryWorkflowTemplateDraft")
+        .WithSummary("增强当前业务流草稿的 root symbols 与章节切片");
+
+        repoGroup.MapGet("/{id}/workflow-template/sessions/{sessionId}/analysis-sessions", async (
+            string id,
+            string sessionId,
+            [FromServices] IWorkflowTemplateAnalysisService analysisService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var sessions = await analysisService.GetAnalysisSessionsAsync(id, sessionId, cancellationToken);
+                return Results.Ok(new { success = true, data = sessions });
+            }
+            catch (Exception ex)
+            {
+                return MapWorkflowTemplateError(ex);
+            }
+        })
+        .WithName("AdminGetRepositoryWorkflowAnalysisSessions")
+        .WithSummary("获取业务流深挖分析会话列表");
+
+        repoGroup.MapPost("/{id}/workflow-template/sessions/{sessionId}/analysis-sessions", async (
+            string id,
+            string sessionId,
+            [FromBody] CreateWorkflowAnalysisSessionRequest request,
+            [FromServices] IWorkflowTemplateAnalysisService analysisService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var result = await analysisService.CreateAnalysisSessionAsync(id, sessionId, request, cancellationToken);
+                return Results.Ok(new { success = true, data = result });
+            }
+            catch (Exception ex)
+            {
+                return MapWorkflowTemplateError(ex);
+            }
+        })
+        .WithName("AdminCreateRepositoryWorkflowAnalysisSession")
+        .WithSummary("创建业务流深挖分析会话");
+
+        repoGroup.MapGet("/{id}/workflow-template/sessions/{sessionId}/analysis-sessions/{analysisSessionId}", async (
+            string id,
+            string sessionId,
+            string analysisSessionId,
+            [FromServices] IWorkflowTemplateAnalysisService analysisService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var result = await analysisService.GetAnalysisSessionAsync(
+                    id,
+                    sessionId,
+                    analysisSessionId,
+                    cancellationToken);
+                return Results.Ok(new { success = true, data = result });
+            }
+            catch (Exception ex)
+            {
+                return MapWorkflowTemplateError(ex);
+            }
+        })
+        .WithName("AdminGetRepositoryWorkflowAnalysisSession")
+        .WithSummary("获取业务流深挖分析会话详情");
+
+        repoGroup.MapGet("/{id}/workflow-template/sessions/{sessionId}/analysis-sessions/{analysisSessionId}/logs", async (
+            string id,
+            string sessionId,
+            string analysisSessionId,
+            [FromQuery] DateTime? since,
+            [FromQuery] int? limit,
+            [FromServices] IWorkflowTemplateAnalysisService analysisService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var result = await analysisService.GetAnalysisSessionLogsAsync(
+                    id,
+                    sessionId,
+                    analysisSessionId,
+                    since,
+                    limit ?? 50,
+                    cancellationToken);
+                return Results.Ok(new { success = true, data = result });
+            }
+            catch (Exception ex)
+            {
+                return MapWorkflowTemplateError(ex);
+            }
+        })
+        .WithName("AdminGetRepositoryWorkflowAnalysisSessionLogs")
+        .WithSummary("获取业务流深挖分析会话日志");
+
         repoGroup.MapPost("/{id}/workflow-template/sessions/{sessionId}/versions/{versionNumber}/adopt", async (
             string id,
             string sessionId,

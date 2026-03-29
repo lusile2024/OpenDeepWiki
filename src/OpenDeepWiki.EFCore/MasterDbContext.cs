@@ -50,6 +50,10 @@ public interface IContext : IDisposable
     DbSet<WorkflowTemplateSession> WorkflowTemplateSessions { get; set; }
     DbSet<WorkflowTemplateMessage> WorkflowTemplateMessages { get; set; }
     DbSet<WorkflowTemplateDraftVersion> WorkflowTemplateDraftVersions { get; set; }
+    DbSet<WorkflowAnalysisSession> WorkflowAnalysisSessions { get; set; }
+    DbSet<WorkflowAnalysisTask> WorkflowAnalysisTasks { get; set; }
+    DbSet<WorkflowAnalysisArtifact> WorkflowAnalysisArtifacts { get; set; }
+    DbSet<WorkflowAnalysisLog> WorkflowAnalysisLogs { get; set; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
@@ -105,6 +109,10 @@ public abstract class MasterDbContext : DbContext, IContext
     public DbSet<WorkflowTemplateSession> WorkflowTemplateSessions { get; set; } = null!;
     public DbSet<WorkflowTemplateMessage> WorkflowTemplateMessages { get; set; } = null!;
     public DbSet<WorkflowTemplateDraftVersion> WorkflowTemplateDraftVersions { get; set; } = null!;
+    public DbSet<WorkflowAnalysisSession> WorkflowAnalysisSessions { get; set; } = null!;
+    public DbSet<WorkflowAnalysisTask> WorkflowAnalysisTasks { get; set; } = null!;
+    public DbSet<WorkflowAnalysisArtifact> WorkflowAnalysisArtifacts { get; set; } = null!;
+    public DbSet<WorkflowAnalysisLog> WorkflowAnalysisLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -187,6 +195,67 @@ public abstract class MasterDbContext : DbContext, IContext
         modelBuilder.Entity<WorkflowTemplateDraftVersion>()
             .HasIndex(version => new { version.SessionId, version.VersionNumber })
             .IsUnique();
+
+        modelBuilder.Entity<WorkflowAnalysisSession>()
+            .HasIndex(session => new { session.WorkflowTemplateSessionId, session.CreatedAt });
+
+        modelBuilder.Entity<WorkflowAnalysisSession>()
+            .HasIndex(session => new { session.RepositoryId, session.ProfileKey, session.ChapterKey });
+
+        modelBuilder.Entity<WorkflowAnalysisSession>()
+            .HasIndex(session => new { session.Status, session.QueuedAt, session.CreatedAt });
+
+        modelBuilder.Entity<WorkflowAnalysisSession>()
+            .HasOne(session => session.Repository)
+            .WithMany()
+            .HasForeignKey(session => session.RepositoryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowAnalysisSession>()
+            .HasOne(session => session.WorkflowTemplateSession)
+            .WithMany()
+            .HasForeignKey(session => session.WorkflowTemplateSessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowAnalysisTask>()
+            .HasOne(task => task.AnalysisSession)
+            .WithMany(session => session.Tasks)
+            .HasForeignKey(task => task.AnalysisSessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowAnalysisTask>()
+            .HasIndex(task => new { task.AnalysisSessionId, task.SequenceNumber })
+            .IsUnique();
+
+        modelBuilder.Entity<WorkflowAnalysisTask>()
+            .HasIndex(task => new { task.AnalysisSessionId, task.Status });
+
+        modelBuilder.Entity<WorkflowAnalysisArtifact>()
+            .HasOne(artifact => artifact.AnalysisSession)
+            .WithMany(session => session.Artifacts)
+            .HasForeignKey(artifact => artifact.AnalysisSessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowAnalysisArtifact>()
+            .HasOne(artifact => artifact.Task)
+            .WithMany()
+            .HasForeignKey(artifact => artifact.TaskId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<WorkflowAnalysisArtifact>()
+            .HasIndex(artifact => new { artifact.AnalysisSessionId, artifact.ArtifactType });
+
+        modelBuilder.Entity<WorkflowAnalysisLog>()
+            .HasOne(log => log.AnalysisSession)
+            .WithMany(session => session.Logs)
+            .HasForeignKey(log => log.AnalysisSessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowAnalysisLog>()
+            .HasIndex(log => new { log.AnalysisSessionId, log.CreatedAt });
+
+        modelBuilder.Entity<WorkflowAnalysisLog>()
+            .HasIndex(log => new { log.TaskId, log.CreatedAt });
 
         // UserBookmark 唯一索引（同一用户对同一仓库只能收藏一次）
         modelBuilder.Entity<UserBookmark>()
@@ -440,7 +509,7 @@ public abstract class MasterDbContext : DbContext, IContext
 
         // GitHubAppInstallation optional FK to Department
         modelBuilder.Entity<GitHubAppInstallation>()
-            .HasOne<Department>()
+            .HasOne(g => g.Department)
             .WithMany()
             .HasForeignKey(g => g.DepartmentId)
             .OnDelete(DeleteBehavior.SetNull);

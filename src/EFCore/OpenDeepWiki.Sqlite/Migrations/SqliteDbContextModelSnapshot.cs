@@ -866,9 +866,6 @@ namespace OpenDeepWiki.Sqlite.Migrations
                         .HasMaxLength(36)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("DepartmentId1")
-                        .HasColumnType("TEXT");
-
                     b.Property<long>("InstallationId")
                         .HasColumnType("INTEGER");
 
@@ -889,8 +886,6 @@ namespace OpenDeepWiki.Sqlite.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DepartmentId");
-
-                    b.HasIndex("DepartmentId1");
 
                     b.HasIndex("InstallationId")
                         .IsUnique();
@@ -2506,6 +2501,331 @@ namespace OpenDeepWiki.Sqlite.Migrations
                     b.ToTable("UserSubscriptions");
                 });
 
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowAnalysisArtifact", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AnalysisSessionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArtifactType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentFormat")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TaskId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TaskId");
+
+                    b.HasIndex("AnalysisSessionId", "ArtifactType");
+
+                    b.ToTable("WorkflowAnalysisArtifacts");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowAnalysisLog", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AnalysisSessionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TaskId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnalysisSessionId", "CreatedAt");
+
+                    b.HasIndex("TaskId", "CreatedAt");
+
+                    b.ToTable("WorkflowAnalysisLogs");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowAnalysisSession", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BranchId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BranchName")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ChapterKey")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CompletedTasks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedByUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CurrentTaskId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DraftVersionNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FailedTasks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LanguageCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Objective")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PendingTaskCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ProfileKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProgressMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("QueuedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RepositoryId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RunningTaskCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TotalTasks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("WorkflowTemplateSessionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowTemplateSessionId", "CreatedAt");
+
+                    b.HasIndex("RepositoryId", "ProfileKey", "ChapterKey");
+
+                    b.HasIndex("Status", "QueuedAt", "CreatedAt");
+
+                    b.ToTable("WorkflowAnalysisSessions");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowAnalysisTask", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AnalysisSessionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Depth")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FocusFilesJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FocusSymbolsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ParentTaskId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TaskType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnalysisSessionId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("AnalysisSessionId", "Status");
+
+                    b.ToTable("WorkflowAnalysisTasks");
+                });
+
             modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateDraftVersion", b =>
                 {
                     b.Property<string>("Id")
@@ -2797,14 +3117,10 @@ namespace OpenDeepWiki.Sqlite.Migrations
 
             modelBuilder.Entity("OpenDeepWiki.Entities.GitHubAppInstallation", b =>
                 {
-                    b.HasOne("OpenDeepWiki.Entities.Department", null)
+                    b.HasOne("OpenDeepWiki.Entities.Department", "Department")
                         .WithMany()
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("OpenDeepWiki.Entities.Department", "Department")
-                        .WithMany()
-                        .HasForeignKey("DepartmentId1");
 
                     b.Navigation("Department");
                 });
@@ -3072,6 +3388,65 @@ namespace OpenDeepWiki.Sqlite.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowAnalysisArtifact", b =>
+                {
+                    b.HasOne("OpenDeepWiki.Entities.WorkflowAnalysisSession", "AnalysisSession")
+                        .WithMany("Artifacts")
+                        .HasForeignKey("AnalysisSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenDeepWiki.Entities.WorkflowAnalysisTask", "Task")
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AnalysisSession");
+
+                    b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowAnalysisLog", b =>
+                {
+                    b.HasOne("OpenDeepWiki.Entities.WorkflowAnalysisSession", "AnalysisSession")
+                        .WithMany("Logs")
+                        .HasForeignKey("AnalysisSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AnalysisSession");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowAnalysisSession", b =>
+                {
+                    b.HasOne("OpenDeepWiki.Entities.Repository", "Repository")
+                        .WithMany()
+                        .HasForeignKey("RepositoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenDeepWiki.Entities.WorkflowTemplateSession", "WorkflowTemplateSession")
+                        .WithMany()
+                        .HasForeignKey("WorkflowTemplateSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Repository");
+
+                    b.Navigation("WorkflowTemplateSession");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowAnalysisTask", b =>
+                {
+                    b.HasOne("OpenDeepWiki.Entities.WorkflowAnalysisSession", "AnalysisSession")
+                        .WithMany("Tasks")
+                        .HasForeignKey("AnalysisSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AnalysisSession");
+                });
+
             modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateDraftVersion", b =>
                 {
                     b.HasOne("OpenDeepWiki.Entities.WorkflowTemplateSession", "Session")
@@ -3113,6 +3488,15 @@ namespace OpenDeepWiki.Sqlite.Migrations
             modelBuilder.Entity("OpenDeepWiki.Entities.DocCatalog", b =>
                 {
                     b.Navigation("Children");
+                });
+
+            modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowAnalysisSession", b =>
+                {
+                    b.Navigation("Artifacts");
+
+                    b.Navigation("Logs");
+
+                    b.Navigation("Tasks");
                 });
 
             modelBuilder.Entity("OpenDeepWiki.Entities.WorkflowTemplateSession", b =>

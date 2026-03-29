@@ -8,8 +8,14 @@ import type {
   RepositoryOverlayConfig,
 } from "@/types/overlay";
 import type {
+  CreateWorkflowAnalysisSessionRequest,
   CreateWorkflowTemplateSessionRequest,
   RepositoryWorkflowConfig,
+  WorkflowAnalysisLog,
+  WorkflowAnalysisSessionDetail,
+  WorkflowAnalysisSessionSummary,
+  WorkflowTemplateAugmentRequest,
+  WorkflowTemplateAugmentResultPayload,
   WorkflowTemplateAdoptResult,
   WorkflowTemplateMessageRequest,
   WorkflowTemplateSessionDetail,
@@ -496,6 +502,84 @@ export async function sendRepositoryWorkflowTemplateMessage(
     method: "POST",
     body: JSON.stringify(request),
   });
+  return result.data;
+}
+
+export async function augmentRepositoryWorkflowTemplateDraft(
+  repositoryId: string,
+  sessionId: string,
+  request: WorkflowTemplateAugmentRequest = {}
+): Promise<WorkflowTemplateAugmentResultPayload> {
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/workflow-template/sessions/${sessionId}/augment`
+  );
+  const result = await fetchWithAuth(url, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+  return result.data;
+}
+
+export async function getRepositoryWorkflowAnalysisSessions(
+  repositoryId: string,
+  sessionId: string
+): Promise<WorkflowAnalysisSessionSummary[]> {
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/workflow-template/sessions/${sessionId}/analysis-sessions`
+  );
+  const result = await fetchWithAuth(url);
+  return result.data;
+}
+
+export async function createRepositoryWorkflowAnalysisSession(
+  repositoryId: string,
+  sessionId: string,
+  request: CreateWorkflowAnalysisSessionRequest
+): Promise<WorkflowAnalysisSessionDetail> {
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/workflow-template/sessions/${sessionId}/analysis-sessions`
+  );
+  const result = await fetchWithAuth(url, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+  return result.data;
+}
+
+export async function getRepositoryWorkflowAnalysisSession(
+  repositoryId: string,
+  sessionId: string,
+  analysisSessionId: string
+): Promise<WorkflowAnalysisSessionDetail> {
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/workflow-template/sessions/${sessionId}/analysis-sessions/${analysisSessionId}`
+  );
+  const result = await fetchWithAuth(url);
+  return result.data;
+}
+
+export async function getRepositoryWorkflowAnalysisSessionLogs(
+  repositoryId: string,
+  sessionId: string,
+  analysisSessionId: string,
+  options?: {
+    since?: string;
+    limit?: number;
+  }
+): Promise<WorkflowAnalysisLog[]> {
+  const params = new URLSearchParams();
+  if (options?.since) {
+    params.set("since", options.since);
+  }
+  if (options?.limit) {
+    params.set("limit", options.limit.toString());
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const url = buildApiUrl(
+    `/api/admin/repositories/${repositoryId}/workflow-template/sessions/${sessionId}/analysis-sessions/${analysisSessionId}/logs${suffix}`
+  );
+  const result = await fetchWithAuth(url);
   return result.data;
 }
 

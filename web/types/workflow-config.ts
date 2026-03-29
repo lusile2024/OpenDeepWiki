@@ -1,4 +1,6 @@
 export type RepositoryWorkflowProfileMode = "WcsRequestExecutor";
+export type WorkflowProfileAnalysisMode = "Manual" | "Roslyn" | "Hybrid";
+export type WorkflowChapterAnalysisMode = "Standard" | "Deep";
 
 export interface RepositoryWorkflowProfileSource {
   type: string;
@@ -16,12 +18,75 @@ export interface WorkflowDocumentPreferences {
   avoidPrimaryTriggerNames: string[];
 }
 
+export interface WorkflowProfileAnalysisOptions {
+  mode: WorkflowProfileAnalysisMode;
+  entryDirectories: string[];
+  rootSymbolNames: string[];
+  mustExplainSymbols: string[];
+  allowedNamespaces: string[];
+  stopNamespacePrefixes: string[];
+  stopNamePatterns: string[];
+  depthBudget: number;
+  maxNodes: number;
+  enableCoverageValidation: boolean;
+}
+
+export interface WorkflowChapterProfile {
+  key: string;
+  title: string;
+  description?: string | null;
+  analysisMode: WorkflowChapterAnalysisMode;
+  rootSymbolNames: string[];
+  mustExplainSymbols: string[];
+  requiredSections: string[];
+  outputArtifacts: string[];
+  depthBudget: number;
+  maxNodes: number;
+  includeFlowchart: boolean;
+  includeMindmap: boolean;
+}
+
+export interface WorkflowCallHierarchyEdge {
+  fromSymbol: string;
+  toSymbol: string;
+  kind: string;
+  reason?: string | null;
+}
+
+export interface WorkflowLspAssistOptions {
+  enabled: boolean;
+  preferredServer?: string | null;
+  includeCallHierarchy: boolean;
+  requestTimeoutMs: number;
+  enableDefinitionLookup: boolean;
+  enableReferenceLookup: boolean;
+  enablePrepareCallHierarchy: boolean;
+  additionalEntrySymbolHints: string[];
+  suggestedEntryDirectories: string[];
+  suggestedRootSymbolNames: string[];
+  suggestedMustExplainSymbols: string[];
+  callHierarchyEdges: WorkflowCallHierarchyEdge[];
+  lastAugmentedAt?: string | null;
+}
+
+export interface WorkflowAcpOptions {
+  enabled: boolean;
+  objective: string;
+  maxBranchTasks: number;
+  maxParallelTasks: number;
+  splitStrategy: string;
+  generateMindMapSeed: boolean;
+  generateFlowchartSeed: boolean;
+}
+
 export interface RepositoryWorkflowProfile {
   key: string;
   name: string;
   description?: string | null;
   enabled: boolean;
   mode: RepositoryWorkflowProfileMode;
+  entryRoots: string[];
+  entryKinds: string[];
   anchorDirectories: string[];
   anchorNames: string[];
   primaryTriggerDirectories: string[];
@@ -37,6 +102,10 @@ export interface RepositoryWorkflowProfile {
   requestRepositoryNames: string[];
   source: RepositoryWorkflowProfileSource;
   documentPreferences: WorkflowDocumentPreferences;
+  analysis: WorkflowProfileAnalysisOptions;
+  chapterProfiles: WorkflowChapterProfile[];
+  lspAssist: WorkflowLspAssistOptions;
+  acp: WorkflowAcpOptions;
 }
 
 export interface RepositoryWorkflowConfig {
@@ -53,6 +122,15 @@ export interface CreateWorkflowTemplateSessionRequest {
 
 export interface WorkflowTemplateMessageRequest {
   content: string;
+}
+
+export interface WorkflowTemplateAugmentRequest {
+  applyToDraftVersion?: boolean;
+}
+
+export interface CreateWorkflowAnalysisSessionRequest {
+  chapterKey?: string;
+  objective?: string;
 }
 
 export interface WorkflowTemplateSessionSummary {
@@ -127,4 +205,105 @@ export interface WorkflowTemplateSessionDetail extends WorkflowTemplateSessionSu
 export interface WorkflowTemplateAdoptResult {
   session: WorkflowTemplateSessionDetail;
   savedConfig: RepositoryWorkflowConfig;
+}
+
+export interface WorkflowLspAugmentResult {
+  profileKey: string;
+  summary: string;
+  strategy: string;
+  fallbackReason?: string | null;
+  lspServerName?: string | null;
+  suggestedEntryDirectories: string[];
+  suggestedRootSymbolNames: string[];
+  suggestedMustExplainSymbols: string[];
+  suggestedChapterProfiles: WorkflowChapterProfile[];
+  callHierarchyEdges: WorkflowCallHierarchyEdge[];
+  evidenceFiles: string[];
+  diagnostics: WorkflowLspDiagnostic[];
+  resolvedDefinitions: WorkflowLspResolvedLocation[];
+  resolvedReferences: WorkflowLspResolvedLocation[];
+}
+
+export interface WorkflowLspDiagnostic {
+  level: string;
+  message: string;
+}
+
+export interface WorkflowLspResolvedLocation {
+  symbolName?: string | null;
+  filePath: string;
+  lineNumber?: number | null;
+  columnNumber?: number | null;
+  source?: string | null;
+}
+
+export interface WorkflowTemplateAugmentResultPayload {
+  augment: WorkflowLspAugmentResult;
+  session: WorkflowTemplateSessionDetail;
+  createdVersionNumber?: number | null;
+}
+
+export interface WorkflowAnalysisSessionSummary {
+  analysisSessionId: string;
+  repositoryId: string;
+  workflowTemplateSessionId: string;
+  profileKey?: string | null;
+  draftVersionNumber?: number | null;
+  chapterKey?: string | null;
+  status: string;
+  objective?: string | null;
+  summary?: string | null;
+  totalTasks: number;
+  completedTasks: number;
+  failedTasks: number;
+  pendingTaskCount: number;
+  runningTaskCount: number;
+  currentTaskId?: string | null;
+  progressMessage?: string | null;
+  createdAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  lastActivityAt: string;
+}
+
+export interface WorkflowAnalysisTask {
+  id: string;
+  parentTaskId?: string | null;
+  sequenceNumber: number;
+  depth: number;
+  taskType: string;
+  title: string;
+  status: string;
+  summary?: string | null;
+  focusSymbols: string[];
+  focusFiles: string[];
+  startedAt?: string | null;
+  completedAt?: string | null;
+  errorMessage?: string | null;
+  metadata: Record<string, string>;
+}
+
+export interface WorkflowAnalysisArtifact {
+  id: string;
+  taskId?: string | null;
+  artifactType: string;
+  title: string;
+  contentFormat: string;
+  content: string;
+  createdAt: string;
+  metadata: Record<string, string>;
+}
+
+export interface WorkflowAnalysisSessionDetail extends WorkflowAnalysisSessionSummary {
+  tasks: WorkflowAnalysisTask[];
+  artifacts: WorkflowAnalysisArtifact[];
+  recentLogs: WorkflowAnalysisLog[];
+}
+
+export interface WorkflowAnalysisLog {
+  id: string;
+  taskId?: string | null;
+  level: string;
+  message: string;
+  createdAt: string;
 }

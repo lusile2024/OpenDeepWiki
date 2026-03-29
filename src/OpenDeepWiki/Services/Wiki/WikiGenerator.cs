@@ -865,7 +865,15 @@ Please start executing the task.";
                     context,
                     branchLanguage.Id,
                     catalogPath,
-                    documentRoute.Candidate.DocumentPreferences,
+                    documentRoute.Candidate,
+                    cancellationToken);
+
+                await EnsureWorkflowMustExplainCoverageAsync(
+                    context,
+                    branchLanguage.Id,
+                    branchLanguage.LanguageCode,
+                    catalogPath,
+                    documentRoute.Candidate,
                     cancellationToken);
             }
 
@@ -1016,7 +1024,15 @@ Please start executing the task.";
             ["workflow_seed_queries"] = string.Join("\n", candidate?.SeedQueries ?? []),
             ["workflow_external_systems"] = string.Join("\n", candidate?.ExternalSystems ?? []),
             ["workflow_state_fields"] = string.Join("\n", candidate?.StateFields ?? []),
-            ["workflow_document_preferences"] = FormatWorkflowDocumentPreferences(candidate?.DocumentPreferences)
+            ["workflow_document_preferences"] = FormatWorkflowDocumentPreferences(candidate?.DocumentPreferences),
+            ["workflow_analysis_roots"] = string.Join("\n", candidate?.Analysis.RootSymbolNames ?? []),
+            ["workflow_must_explain_symbols"] = string.Join("\n", CollectWorkflowMustExplainSymbols(candidate)),
+            ["workflow_chapter_profiles"] = FormatWorkflowChapterProfiles(candidate?.ChapterProfiles),
+            ["workflow_call_hierarchy_edges"] = FormatWorkflowCallHierarchyEdges(candidate?.LspAssist?.CallHierarchyEdges),
+            ["workflow_deep_analysis_overview"] = candidate?.DeepAnalysis?.OverviewMarkdown ?? string.Empty,
+            ["workflow_chapter_brief_seed"] = FormatWorkflowChapterBriefSeeds(candidate?.DeepAnalysis),
+            ["workflow_flowchart_seed"] = FormatWorkflowFlowchartSeeds(candidate?.DeepAnalysis),
+            ["workflow_mindmap_seed"] = FormatWorkflowMindMapSeeds(candidate?.DeepAnalysis)
         };
     }
 
@@ -1046,6 +1062,36 @@ Please start executing the task.";
 - Request Entities: {string.Join(", ", candidate.RequestEntities)}
 - External Systems: {string.Join(", ", candidate.ExternalSystems)}
 - State Fields: {string.Join(", ", candidate.StateFields)}
+- Analysis Roots: {string.Join(", ", candidate.Analysis.RootSymbolNames)}
+- Must Explain Symbols: {string.Join(", ", CollectWorkflowMustExplainSymbols(candidate))}
+
+## Analysis Profile
+
+{FormatWorkflowAnalysisOptions(candidate.Analysis, candidate.Acp)}
+
+## Chapter Profiles (MUST cover all configured chapters)
+
+{FormatWorkflowChapterProfiles(candidate.ChapterProfiles)}
+
+## LSP / Roslyn Call Hierarchy Hints
+
+{FormatWorkflowCallHierarchyEdges(candidate.LspAssist.CallHierarchyEdges)}
+
+## ACP Deep Analysis Snapshot
+
+{FormatWorkflowDeepAnalysisSnapshot(candidate.DeepAnalysis)}
+
+## ACP Chapter Brief Seeds
+
+{FormatWorkflowChapterBriefSeeds(candidate.DeepAnalysis)}
+
+## ACP Flowchart Seeds
+
+{FormatWorkflowFlowchartSeeds(candidate.DeepAnalysis)}
+
+## ACP Mindmap Seeds
+
+{FormatWorkflowMindMapSeeds(candidate.DeepAnalysis)}
 
 ## Documentation Preferences
 
@@ -1064,10 +1110,15 @@ Please start executing the task.";
 3. Treat Compensation Trigger Points only as retry or operational entry points when they exist.
 4. Do not describe compensation controllers as the main business trigger unless the evidence explicitly proves they are the only entry.
 5. Read the evidence files first, then expand with nearby source files as needed.
-6. Include at least one Mermaid flowchart or sequence diagram.
-7. If Required Sections are configured, you MUST create one dedicated Markdown section for each required section and keep the heading text unchanged.
-8. When evidence is incomplete, keep the required section anyway and explicitly mark unknown or pending points instead of omitting the section.
-9. Use WriteDoc(content) to write the final document.
+6. You MUST cover every configured Chapter Profile. Each chapter must explain its root symbols, decision branches, persistence/state changes, and the specific downstream methods that actually implement the logic.
+7. Do not stop at overview-level method names. If a chapter says “整体流程概览” or similar, continue drilling into the allocator/strategy/executor methods until the must-explain symbols are actually explained.
+8. Every symbol in Must Explain Symbols must be explicitly explained in the final document. If evidence is incomplete, keep the symbol in the document and mark the gap clearly instead of silently skipping it.
+9. Do not mix unrelated controllers/helpers/services into the main flow. Any trigger, helper, scheduler, or controller you mention must be justified by direct call-chain evidence, persistence-chain evidence, or explicit profile configuration.
+10. If Required Sections are configured, you MUST create one dedicated Markdown section for each required section and keep the heading text unchanged.
+11. Write all narrative headings and explanatory text in {branchLanguage.LanguageCode}. Keep code identifiers, class names, method names, and table field names in original code form.
+12. Include at least one Mermaid flowchart or sequence diagram. If ACP flowchart seeds are provided, use them as a starting point and then refine/extend them with verified code evidence.
+13. If ACP mindmap seeds are provided, use them to organize chapter decomposition and branch explanations.
+14. Use WriteDoc(content) to write the final document.
 
 ## Evidence Files
 {string.Join("\n", candidate.EvidenceFiles.Select(path => $"- {path}"))}
@@ -1109,13 +1160,214 @@ Please start executing the task.";
         return lines.Count == 0 ? "- (none)" : string.Join("\n", lines);
     }
 
+    private static string FormatWorkflowAnalysisOptions(
+        WorkflowProfileAnalysisOptions? analysis,
+        WorkflowAcpOptions? acp)
+    {
+        analysis ??= new WorkflowProfileAnalysisOptions();
+        acp ??= new WorkflowAcpOptions();
+
+        var lines = new List<string>
+        {
+            $"- Analysis Mode: {analysis.Mode}",
+            $"- Depth Budget: {analysis.DepthBudget}",
+            $"- Max Nodes: {analysis.MaxNodes}",
+            $"- Coverage Validation: {analysis.EnableCoverageValidation}",
+            $"- ACP Objective: {acp.Objective}",
+            $"- ACP Parallel Tasks: {acp.MaxParallelTasks}",
+            $"- ACP Max Branch Tasks: {acp.MaxBranchTasks}"
+        };
+
+        if (analysis.EntryDirectories.Count > 0)
+        {
+            lines.Add("- Entry Directories:");
+            lines.AddRange(analysis.EntryDirectories.Select(directory => $"  - {directory}"));
+        }
+
+        if (analysis.RootSymbolNames.Count > 0)
+        {
+            lines.Add("- Root Symbols:");
+            lines.AddRange(analysis.RootSymbolNames.Select(symbol => $"  - {symbol}"));
+        }
+
+        if (analysis.MustExplainSymbols.Count > 0)
+        {
+            lines.Add("- Must Explain Symbols:");
+            lines.AddRange(analysis.MustExplainSymbols.Select(symbol => $"  - {symbol}"));
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    private static IReadOnlyList<string> CollectWorkflowMustExplainSymbols(WorkflowTopicCandidate? candidate)
+    {
+        if (candidate is null)
+        {
+            return [];
+        }
+
+        return candidate.Analysis.MustExplainSymbols
+            .Concat(candidate.ChapterProfiles.SelectMany(chapter => chapter.MustExplainSymbols))
+            .Where(symbol => !string.IsNullOrWhiteSpace(symbol))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static string FormatWorkflowChapterProfiles(IReadOnlyCollection<WorkflowChapterProfile>? chapterProfiles)
+    {
+        if (chapterProfiles is not { Count: > 0 })
+        {
+            return "- (none)";
+        }
+
+        var lines = new List<string>();
+        foreach (var chapter in chapterProfiles)
+        {
+            lines.Add($"### {chapter.Title} ({chapter.Key})");
+            if (!string.IsNullOrWhiteSpace(chapter.Description))
+            {
+                lines.Add($"- Description: {chapter.Description}");
+            }
+
+            lines.Add($"- Depth Budget: {chapter.DepthBudget}");
+            lines.Add($"- Max Nodes: {chapter.MaxNodes}");
+
+            if (chapter.RootSymbolNames.Count > 0)
+            {
+                lines.Add($"- Root Symbols: {string.Join(", ", chapter.RootSymbolNames)}");
+            }
+
+            if (chapter.MustExplainSymbols.Count > 0)
+            {
+                lines.Add($"- Must Explain Symbols: {string.Join(", ", chapter.MustExplainSymbols)}");
+            }
+
+            if (chapter.RequiredSections.Count > 0)
+            {
+                lines.Add($"- Required Sections: {string.Join(" | ", chapter.RequiredSections)}");
+            }
+
+            if (chapter.OutputArtifacts.Count > 0)
+            {
+                lines.Add($"- Expected Artifacts: {string.Join(", ", chapter.OutputArtifacts)}");
+            }
+
+            lines.Add(string.Empty);
+        }
+
+        return string.Join("\n", lines).Trim();
+    }
+
+    private static string FormatWorkflowCallHierarchyEdges(IReadOnlyCollection<WorkflowCallHierarchyEdge>? edges)
+    {
+        if (edges is not { Count: > 0 })
+        {
+            return "- (none)";
+        }
+
+        return string.Join(
+            "\n",
+            edges.Take(32).Select(edge =>
+                string.IsNullOrWhiteSpace(edge.Reason)
+                    ? $"- {edge.FromSymbol} -> {edge.ToSymbol} ({edge.Kind})"
+                    : $"- {edge.FromSymbol} -> {edge.ToSymbol} ({edge.Kind}; {edge.Reason})"));
+    }
+
+    private static string FormatWorkflowDeepAnalysisSnapshot(WorkflowDeepAnalysisSnapshot? snapshot)
+    {
+        if (snapshot is null)
+        {
+            return "- (none)";
+        }
+
+        var lines = new List<string>
+        {
+            $"- Status: {snapshot.Status}",
+            $"- Objective: {snapshot.Objective}",
+            $"- Summary: {snapshot.Summary}",
+            $"- Last Completed At: {snapshot.LastCompletedAt:O}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(snapshot.OverviewMarkdown))
+        {
+            lines.Add("- Overview:");
+            lines.Add(snapshot.OverviewMarkdown.Trim());
+        }
+
+        if (snapshot.Chapters.Count > 0)
+        {
+            lines.Add("- Chapter Seeds:");
+            lines.AddRange(snapshot.Chapters.Select(chapter =>
+                $"  - {chapter.Title} ({chapter.ChapterKey})"));
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    private static string FormatWorkflowFlowchartSeeds(WorkflowDeepAnalysisSnapshot? snapshot)
+    {
+        if (snapshot?.Chapters.Count is not > 0)
+        {
+            return "- (none)";
+        }
+
+        var blocks = snapshot.Chapters
+            .Where(chapter => !string.IsNullOrWhiteSpace(chapter.FlowchartSeedMermaid))
+            .Select(chapter => $"### {chapter.Title} ({chapter.ChapterKey})\n```mermaid\n{chapter.FlowchartSeedMermaid!.Trim()}\n```")
+            .ToList();
+
+        return blocks.Count == 0 ? "- (none)" : string.Join("\n\n", blocks);
+    }
+
+    private static string FormatWorkflowChapterBriefSeeds(WorkflowDeepAnalysisSnapshot? snapshot)
+    {
+        if (snapshot?.Chapters.Count is not > 0)
+        {
+            return "- (none)";
+        }
+
+        var blocks = snapshot.Chapters
+            .Where(chapter => !string.IsNullOrWhiteSpace(chapter.BriefMarkdown))
+            .Select(chapter => $"### {chapter.Title} ({chapter.ChapterKey})\n{chapter.BriefMarkdown!.Trim()}")
+            .ToList();
+
+        return blocks.Count == 0 ? "- (none)" : string.Join("\n\n", blocks);
+    }
+
+    private static string FormatWorkflowMindMapSeeds(WorkflowDeepAnalysisSnapshot? snapshot)
+    {
+        if (snapshot?.Chapters.Count is not > 0)
+        {
+            return "- (none)";
+        }
+
+        var blocks = snapshot.Chapters
+            .Where(chapter => !string.IsNullOrWhiteSpace(chapter.MindMapSeedMarkdown))
+            .Select(chapter => $"### {chapter.Title} ({chapter.ChapterKey})\n{chapter.MindMapSeedMarkdown!.Trim()}")
+            .ToList();
+
+        return blocks.Count == 0 ? "- (none)" : string.Join("\n\n", blocks);
+    }
+
     private async Task EnsureWorkflowRequiredSectionsAsync(
         IContext context,
         string branchLanguageId,
         string catalogPath,
-        WorkflowDocumentPreferences preferences,
+        WorkflowTopicCandidate candidate,
         CancellationToken cancellationToken)
     {
+        var preferences = new WorkflowDocumentPreferences
+        {
+            WritingHint = candidate.DocumentPreferences.WritingHint,
+            PreferredTerms = [.. candidate.DocumentPreferences.PreferredTerms],
+            RequiredSections = candidate.DocumentPreferences.RequiredSections
+                .Concat(candidate.ChapterProfiles.SelectMany(chapter => chapter.RequiredSections))
+                .Where(section => !string.IsNullOrWhiteSpace(section))
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
+            AvoidPrimaryTriggerNames = [.. candidate.DocumentPreferences.AvoidPrimaryTriggerNames]
+        };
+
         if (preferences.RequiredSections.Count == 0)
         {
             return;
@@ -1165,6 +1417,85 @@ Please start executing the task.";
             "Appended missing required workflow sections for {Path}: {Sections}",
             catalogPath,
             string.Join(", ", enforcementResult.MissingSections));
+    }
+
+    private async Task EnsureWorkflowMustExplainCoverageAsync(
+        IContext context,
+        string branchLanguageId,
+        string languageCode,
+        string catalogPath,
+        WorkflowTopicCandidate candidate,
+        CancellationToken cancellationToken)
+    {
+        if (!candidate.Analysis.EnableCoverageValidation)
+        {
+            return;
+        }
+
+        var mustExplainSymbols = CollectWorkflowMustExplainSymbols(candidate);
+        if (mustExplainSymbols.Count == 0)
+        {
+            return;
+        }
+
+        var catalog = await context.DocCatalogs
+            .FirstOrDefaultAsync(
+                item => item.BranchLanguageId == branchLanguageId &&
+                        item.Path == catalogPath &&
+                        !item.IsDeleted,
+                cancellationToken);
+
+        if (catalog is null || string.IsNullOrWhiteSpace(catalog.DocFileId))
+        {
+            return;
+        }
+
+        var docFile = await context.DocFiles
+            .FirstOrDefaultAsync(
+                item => item.Id == catalog.DocFileId && !item.IsDeleted,
+                cancellationToken);
+
+        if (docFile is null)
+        {
+            return;
+        }
+
+        var missingSymbols = mustExplainSymbols
+            .Where(symbol => !docFile.Content.Contains(symbol, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (missingSymbols.Count == 0)
+        {
+            return;
+        }
+
+        var sectionTitle = languageCode.StartsWith("zh", StringComparison.OrdinalIgnoreCase)
+            ? "## 关键符号覆盖缺口"
+            : "## Must-Explain Coverage Gaps";
+        var introLine = languageCode.StartsWith("zh", StringComparison.OrdinalIgnoreCase)
+            ? "以下关键符号尚未在正文中被明确解释，后续应继续沿调用链补充："
+            : "The following critical symbols were not explicitly covered in the generated content and should be expanded in a follow-up pass:";
+
+        var gapLines = new List<string>
+        {
+            sectionTitle,
+            string.Empty,
+            introLine
+        };
+        gapLines.AddRange(missingSymbols.Select(symbol => $"- `{symbol}`"));
+        var gapSection = string.Join(Environment.NewLine, gapLines);
+
+        if (!docFile.Content.Contains(sectionTitle, StringComparison.Ordinal))
+        {
+            docFile.Content = $"{docFile.Content.TrimEnd()}{Environment.NewLine}{Environment.NewLine}{gapSection}";
+            docFile.UpdateTimestamp();
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        _logger.LogInformation(
+            "Workflow must-explain coverage gaps detected for {Path}: {Symbols}",
+            catalogPath,
+            string.Join(", ", missingSymbols));
     }
 
     private bool ShouldRefreshWorkflowDiscovery(string[] changedFiles)

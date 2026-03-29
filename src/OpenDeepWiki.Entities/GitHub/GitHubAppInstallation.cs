@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace OpenDeepWiki.Entities;
 
@@ -57,6 +56,5 @@ public class GitHubAppInstallation : AggregateRoot<string>
     /// <summary>
     /// Navigation property to the linked department.
     /// </summary>
-    [ForeignKey("DepartmentId")]
     public virtual Department? Department { get; set; }
 }

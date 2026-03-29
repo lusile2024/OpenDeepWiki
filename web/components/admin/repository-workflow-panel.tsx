@@ -475,7 +475,7 @@ export function RepositoryWorkflowPanel({
   };
 
   return (
-    <Card className="space-y-4 p-4">
+    <Card className="min-w-0 space-y-4 overflow-hidden p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold">Workflow 规则</h3>
@@ -585,13 +585,13 @@ export function RepositoryWorkflowPanel({
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <Tabs defaultValue="config" className="space-y-4">
-          <TabsList>
+        <Tabs defaultValue="config" className="min-w-0 w-full space-y-4">
+          <TabsList className="grid w-full grid-cols-2 sm:w-auto">
             <TabsTrigger value="config">配置编辑</TabsTrigger>
             <TabsTrigger value="workbench">AI 多轮工作台</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="config" className="space-y-4">
+          <TabsContent value="config" className="min-w-0 space-y-4 overflow-hidden">
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button variant="outline" onClick={handleApplyWmsTemplate} disabled={loading || saving}>
                 <WandSparkles className="mr-2 h-4 w-4" />
@@ -745,7 +745,7 @@ export function RepositoryWorkflowPanel({
             </Card>
           </TabsContent>
 
-          <TabsContent value="workbench" className="space-y-4">
+          <TabsContent value="workbench" className="min-w-0 space-y-4 overflow-hidden">
             <RepositoryWorkflowTemplateWorkbench
               repositoryId={repositoryId}
               selectedBranchId={selectedBranchId}

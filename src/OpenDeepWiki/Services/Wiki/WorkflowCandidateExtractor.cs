@@ -284,7 +284,19 @@ public sealed class WorkflowCandidateExtractor
             StateFields = ExtractStateFields(edges),
             DocumentPreferences = useProfileIdentity
                 ? CloneDocumentPreferences(activeProfile!.DocumentPreferences)
-                : new WorkflowDocumentPreferences()
+                : new WorkflowDocumentPreferences(),
+            Analysis = useProfileIdentity
+                ? CloneAnalysisOptions(activeProfile!.Analysis)
+                : new WorkflowProfileAnalysisOptions(),
+            ChapterProfiles = useProfileIdentity
+                ? CloneChapterProfiles(activeProfile!.ChapterProfiles)
+                : [],
+            LspAssist = useProfileIdentity
+                ? CloneLspAssistOptions(activeProfile!.LspAssist)
+                : new WorkflowLspAssistOptions(),
+            Acp = useProfileIdentity
+                ? CloneAcpOptions(activeProfile!.Acp)
+                : new WorkflowAcpOptions()
         };
     }
 
@@ -680,7 +692,11 @@ public sealed class WorkflowCandidateExtractor
             EvidenceFiles = nodes.Select(node => node.FilePath).Where(static path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.Ordinal).ToList(),
             SeedQueries = requestNodes.Concat(schedulerNodes).Concat(primaryExecutors).Select(node => node.DisplayName).Distinct(StringComparer.Ordinal).ToList(),
             ExternalSystems = externalNodes.Select(node => node.DisplayName).Distinct(StringComparer.Ordinal).ToList(),
-            StateFields = ExtractStateFields(edges)
+            StateFields = ExtractStateFields(edges),
+            Analysis = new WorkflowProfileAnalysisOptions(),
+            ChapterProfiles = [],
+            LspAssist = new WorkflowLspAssistOptions(),
+            Acp = new WorkflowAcpOptions()
         };
     }
 
@@ -1080,6 +1096,83 @@ public sealed class WorkflowCandidateExtractor
         };
     }
 
+    private static WorkflowProfileAnalysisOptions CloneAnalysisOptions(WorkflowProfileAnalysisOptions? options)
+    {
+        options ??= new WorkflowProfileAnalysisOptions();
+        return new WorkflowProfileAnalysisOptions
+        {
+            Mode = options.Mode,
+            EntryDirectories = [.. options.EntryDirectories],
+            RootSymbolNames = [.. options.RootSymbolNames],
+            MustExplainSymbols = [.. options.MustExplainSymbols],
+            DepthBudget = options.DepthBudget,
+            MaxNodes = options.MaxNodes,
+            EnableCoverageValidation = options.EnableCoverageValidation
+        };
+    }
+
+    private static List<WorkflowChapterProfile> CloneChapterProfiles(IEnumerable<WorkflowChapterProfile>? chapters)
+    {
+        return chapters?
+            .Select(chapter => new WorkflowChapterProfile
+            {
+                Key = chapter.Key,
+                Title = chapter.Title,
+                Description = chapter.Description,
+                RootSymbolNames = [.. chapter.RootSymbolNames],
+                MustExplainSymbols = [.. chapter.MustExplainSymbols],
+                RequiredSections = [.. chapter.RequiredSections],
+                OutputArtifacts = [.. chapter.OutputArtifacts],
+                DepthBudget = chapter.DepthBudget,
+                MaxNodes = chapter.MaxNodes
+            })
+            .ToList()
+            ?? [];
+    }
+
+    private static WorkflowLspAssistOptions CloneLspAssistOptions(WorkflowLspAssistOptions? options)
+    {
+        options ??= new WorkflowLspAssistOptions();
+        return new WorkflowLspAssistOptions
+        {
+            Enabled = options.Enabled,
+            PreferredServer = options.PreferredServer,
+            IncludeCallHierarchy = options.IncludeCallHierarchy,
+            RequestTimeoutMs = options.RequestTimeoutMs,
+            EnableDefinitionLookup = options.EnableDefinitionLookup,
+            EnableReferenceLookup = options.EnableReferenceLookup,
+            EnablePrepareCallHierarchy = options.EnablePrepareCallHierarchy,
+            AdditionalEntrySymbolHints = [.. options.AdditionalEntrySymbolHints],
+            SuggestedEntryDirectories = [.. options.SuggestedEntryDirectories],
+            SuggestedRootSymbolNames = [.. options.SuggestedRootSymbolNames],
+            SuggestedMustExplainSymbols = [.. options.SuggestedMustExplainSymbols],
+            CallHierarchyEdges = options.CallHierarchyEdges
+                .Select(edge => new WorkflowCallHierarchyEdge
+                {
+                    FromSymbol = edge.FromSymbol,
+                    ToSymbol = edge.ToSymbol,
+                    Kind = edge.Kind,
+                    Reason = edge.Reason
+                })
+                .ToList(),
+            LastAugmentedAt = options.LastAugmentedAt
+        };
+    }
+
+    private static WorkflowAcpOptions CloneAcpOptions(WorkflowAcpOptions? options)
+    {
+        options ??= new WorkflowAcpOptions();
+        return new WorkflowAcpOptions
+        {
+            Enabled = options.Enabled,
+            Objective = options.Objective,
+            MaxBranchTasks = options.MaxBranchTasks,
+            MaxParallelTasks = options.MaxParallelTasks,
+            GenerateMindMapSeed = options.GenerateMindMapSeed,
+            GenerateFlowchartSeed = options.GenerateFlowchartSeed
+        };
+    }
+
     private static bool PathContainsSegment(string? filePath, string segment)
     {
         if (string.IsNullOrWhiteSpace(filePath))
@@ -1150,4 +1243,44 @@ public sealed class WorkflowTopicCandidate
     public List<string> StateFields { get; init; } = [];
 
     public WorkflowDocumentPreferences DocumentPreferences { get; init; } = new();
+
+    public WorkflowProfileAnalysisOptions Analysis { get; init; } = new();
+
+    public List<WorkflowChapterProfile> ChapterProfiles { get; init; } = [];
+
+    public WorkflowLspAssistOptions LspAssist { get; init; } = new();
+
+    public WorkflowAcpOptions Acp { get; init; } = new();
+
+    public WorkflowDeepAnalysisSnapshot? DeepAnalysis { get; set; }
+}
+
+public sealed class WorkflowDeepAnalysisSnapshot
+{
+    public List<string> SessionIds { get; set; } = [];
+
+    public string Status { get; set; } = "Completed";
+
+    public string? Objective { get; set; }
+
+    public string? Summary { get; set; }
+
+    public string? OverviewMarkdown { get; set; }
+
+    public DateTime? LastCompletedAt { get; set; }
+
+    public List<WorkflowDeepAnalysisChapterSeed> Chapters { get; set; } = [];
+}
+
+public sealed class WorkflowDeepAnalysisChapterSeed
+{
+    public string ChapterKey { get; set; } = string.Empty;
+
+    public string Title { get; set; } = string.Empty;
+
+    public string? BriefMarkdown { get; set; }
+
+    public string? FlowchartSeedMermaid { get; set; }
+
+    public string? MindMapSeedMarkdown { get; set; }
 }

@@ -844,6 +844,10 @@ public sealed class RoslynWorkflowSemanticProvider : IWorkflowSemanticProvider
             var id = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", string.Empty, StringComparison.Ordinal);
             var kind = ClassifyNode(symbol);
             var metadataJson = CreateNodeMetadataJson(symbol);
+            var sourceLocation = symbol.Locations.FirstOrDefault(static location => location.IsInSource);
+            var lineSpan = sourceLocation?.GetLineSpan();
+            var lineNumber = lineSpan?.StartLinePosition.Line + 1;
+            var columnNumber = lineSpan?.StartLinePosition.Character + 1;
             if (_nodes.TryGetValue(id, out var existing))
             {
                 _nodes[id] = new WorkflowGraphNode
@@ -853,6 +857,8 @@ public sealed class RoslynWorkflowSemanticProvider : IWorkflowSemanticProvider
                     DisplayName = existing.DisplayName,
                     FilePath = string.IsNullOrWhiteSpace(existing.FilePath) ? filePath : existing.FilePath,
                     SymbolName = existing.SymbolName,
+                    LineNumber = existing.LineNumber ?? lineNumber,
+                    ColumnNumber = existing.ColumnNumber ?? columnNumber,
                     MetadataJson = string.IsNullOrWhiteSpace(existing.MetadataJson) ? metadataJson : existing.MetadataJson
                 };
                 return;
@@ -865,6 +871,8 @@ public sealed class RoslynWorkflowSemanticProvider : IWorkflowSemanticProvider
                 DisplayName = symbol.Name,
                 FilePath = filePath,
                 SymbolName = id,
+                LineNumber = lineNumber,
+                ColumnNumber = columnNumber,
                 MetadataJson = metadataJson
             };
         }

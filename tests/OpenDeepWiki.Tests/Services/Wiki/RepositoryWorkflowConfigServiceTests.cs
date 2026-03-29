@@ -52,6 +52,24 @@ public class RepositoryWorkflowConfigServiceTests
         Assert.Null(profile);
     }
 
+    [Fact]
+    public void SanitizeProfile_ShouldDefaultLspAssistToBalancedStrategyWithoutReferences()
+    {
+        var profile = RepositoryWorkflowConfigRules.SanitizeProfile(new RepositoryWorkflowProfile
+        {
+            Key = "wms-wcs",
+            Name = "WMS/WCS 请求流程",
+            Mode = RepositoryWorkflowProfileMode.WcsRequestExecutor,
+            AnchorNames = ["WcsRequestExecutor"]
+        });
+
+        Assert.True(profile.LspAssist.Enabled);
+        Assert.True(profile.LspAssist.EnableDefinitionLookup);
+        Assert.True(profile.LspAssist.IncludeCallHierarchy);
+        Assert.True(profile.LspAssist.EnablePrepareCallHierarchy);
+        Assert.False(profile.LspAssist.EnableReferenceLookup);
+    }
+
     private static RepositoryWorkflowConfigService CreateService(TestContextFactory factory)
     {
         return new RepositoryWorkflowConfigService(

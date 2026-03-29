@@ -19,6 +19,10 @@ public sealed class WorkflowGraphNode
 
     public string SymbolName { get; init; } = string.Empty;
 
+    public int? LineNumber { get; init; }
+
+    public int? ColumnNumber { get; init; }
+
     public string? MetadataJson { get; init; }
 }
 

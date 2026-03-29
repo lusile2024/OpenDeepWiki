@@ -37,6 +37,8 @@ public class WorkflowTemplateWorkbenchServiceTests
                     Description = "WCS 发起货位异常恢复请求，WMS 持久化后由定时任务扫描并分发到对应 executor。",
                     Enabled = false,
                     Mode = RepositoryWorkflowProfileMode.WcsRequestExecutor,
+                    EntryRoots = ["WcsRequestWmsExecutorJob.Execute", "LocExceptionRecoverExecutor.ExecuteAsync"],
+                    EntryKinds = ["scheduler", "executor"],
                     AnchorNames = ["LocExceptionRecoverExecutor"],
                     PrimaryTriggerNames = ["WmsJobInterfaceController"],
                     CompensationTriggerNames = ["LogExternalInterfaceController"],
@@ -44,6 +46,24 @@ public class WorkflowTemplateWorkbenchServiceTests
                     RequestEntityNames = ["WcsRequest"],
                     RequestServiceNames = ["IWcsRequestService", "WcsRequestService"],
                     RequestRepositoryNames = ["IWcsRequestRepository", "WcsRequestRepository"],
+                    Analysis = new WorkflowProfileAnalysisOptions
+                    {
+                        RootSymbolNames = ["LocExceptionRecoverExecutor.ExecuteAsync"],
+                        MustExplainSymbols = ["LocExceptionRecoverExecutor.ExecuteAsync", "WcsRequestWmsExecutorJob.Execute"]
+                    },
+                    ChapterProfiles =
+                    [
+                        new WorkflowChapterProfile
+                        {
+                            Key = "recover-mainline",
+                            Title = "异常恢复主线",
+                            AnalysisMode = WorkflowChapterAnalysisMode.Deep,
+                            RootSymbolNames = ["LocExceptionRecoverExecutor.ExecuteAsync"],
+                            MustExplainSymbols = ["LocExceptionRecoverExecutor.ExecuteAsync", "WcsRequestWmsExecutorJob.Execute"],
+                            IncludeFlowchart = true,
+                            IncludeMindmap = true
+                        }
+                    ],
                     DocumentPreferences = new WorkflowDocumentPreferences
                     {
                         WritingHint = "正文要强调主入口、请求落库、调度扫描、executor 执行、失败补偿的顺序。",
@@ -237,13 +257,33 @@ public class WorkflowTemplateWorkbenchServiceTests
             Description = $"{name}业务流模板",
             Enabled = false,
             Mode = RepositoryWorkflowProfileMode.WcsRequestExecutor,
+            EntryRoots = ["WcsRequestWmsExecutorJob.Execute", $"{anchorName}.ExecuteAsync"],
+            EntryKinds = ["scheduler", "executor"],
             AnchorNames = [anchorName],
             PrimaryTriggerNames = ["WmsJobInterfaceController"],
             CompensationTriggerNames = ["LogExternalInterfaceController"],
             SchedulerNames = ["WcsRequestWmsExecutorJob"],
             RequestEntityNames = ["WcsRequest"],
             RequestServiceNames = ["WcsRequestService"],
-            RequestRepositoryNames = ["WcsRequestRepository"]
+            RequestRepositoryNames = ["WcsRequestRepository"],
+            Analysis = new WorkflowProfileAnalysisOptions
+            {
+                RootSymbolNames = [$"{anchorName}.ExecuteAsync"],
+                MustExplainSymbols = [$"{anchorName}.ExecuteAsync", "WcsRequestWmsExecutorJob.Execute"]
+            },
+            ChapterProfiles =
+            [
+                new WorkflowChapterProfile
+                {
+                    Key = $"{key}-mainline",
+                    Title = $"{name}主线",
+                    AnalysisMode = WorkflowChapterAnalysisMode.Deep,
+                    RootSymbolNames = [$"{anchorName}.ExecuteAsync"],
+                    MustExplainSymbols = [$"{anchorName}.ExecuteAsync", "WcsRequestWmsExecutorJob.Execute"],
+                    IncludeFlowchart = true,
+                    IncludeMindmap = true
+                }
+            ]
         };
     }
 

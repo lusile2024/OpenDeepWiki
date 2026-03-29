@@ -971,7 +971,7 @@ export default function AdminRepositoryManagementPage() {
         </div>
       </Card>
 
-      <Tabs defaultValue="docs" className="w-full">
+      <Tabs defaultValue="docs" className="min-w-0 w-full">
         <TabsList className="grid w-full grid-cols-2 gap-2 md:grid-cols-6">
           <TabsTrigger value="branches" className="transition-all data-[state=active]:shadow-sm">
             <GitBranch className="mr-2 h-4 w-4" />
@@ -1007,7 +1007,7 @@ export default function AdminRepositoryManagementPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="branches" className="mt-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+        <TabsContent value="branches" className="mt-4 min-w-0 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           <div className="grid gap-4 lg:grid-cols-2">
             {management.branches.map((branch, index) => {
               const isSelected = selectedBranchId === branch.id;
@@ -1060,7 +1060,7 @@ export default function AdminRepositoryManagementPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="docs" className="mt-4 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+        <TabsContent value="docs" className="mt-4 min-w-0 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           <Card className="p-4 transition-all duration-300 hover:shadow-sm">
             <div className="grid gap-3 md:grid-cols-4">
               <div>
@@ -1243,7 +1243,7 @@ export default function AdminRepositoryManagementPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="logs" className="mt-4 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+        <TabsContent value="logs" className="mt-4 min-w-0 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           <Card className="p-4 transition-all duration-300 hover:shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-1">
@@ -1341,7 +1341,7 @@ export default function AdminRepositoryManagementPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="incremental" className="mt-4 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+        <TabsContent value="incremental" className="mt-4 min-w-0 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           <Card className="p-4 transition-all duration-300 hover:shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-1">
@@ -1503,11 +1503,12 @@ export default function AdminRepositoryManagementPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="overlay" className="mt-4 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+        <TabsContent value="overlay" className="mt-4 min-w-0 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           <RepositoryOverlayPanel repositoryId={repositoryId} />
         </TabsContent>
 
-        <TabsContent value="workflow" className="mt-4 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+        <TabsContent value="workflow" className="mt-4 min-w-0 overflow-hidden space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+          <div className="min-w-0">
           <RepositoryWorkflowPanel
             repositoryId={repositoryId}
             repositoryOwner={repository?.orgName}
@@ -1518,6 +1519,7 @@ export default function AdminRepositoryManagementPage() {
             onBranchChange={handleBranchChange}
             onLanguageChange={handleLanguageChange}
           />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -58,6 +58,10 @@ public class TestConfigDbContext : DbContext, IContext
     public DbSet<WorkflowTemplateSession> WorkflowTemplateSessions { get; set; } = null!;
     public DbSet<WorkflowTemplateMessage> WorkflowTemplateMessages { get; set; } = null!;
     public DbSet<WorkflowTemplateDraftVersion> WorkflowTemplateDraftVersions { get; set; } = null!;
+    public DbSet<WorkflowAnalysisSession> WorkflowAnalysisSessions { get; set; } = null!;
+    public DbSet<WorkflowAnalysisTask> WorkflowAnalysisTasks { get; set; } = null!;
+    public DbSet<WorkflowAnalysisArtifact> WorkflowAnalysisArtifacts { get; set; } = null!;
+    public DbSet<WorkflowAnalysisLog> WorkflowAnalysisLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

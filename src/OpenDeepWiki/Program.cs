@@ -25,6 +25,7 @@ using OpenDeepWiki.Services.Translation;
 using OpenDeepWiki.Services.Mcp;
 using OpenDeepWiki.Services.UserProfile;
 using OpenDeepWiki.Services.Wiki;
+using OpenDeepWiki.Services.Wiki.Lsp;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -200,6 +201,8 @@ try
         .PostConfigure(options => WikiGeneratorOptionsConfigurator.Apply(options, builder.Configuration));
     builder.Services.AddOptions<WorkflowDiscoveryOptions>()
         .Bind(builder.Configuration.GetSection(WorkflowDiscoveryOptions.SectionName));
+    builder.Services.AddOptions<WorkflowExternalLspOptions>()
+        .Bind(builder.Configuration.GetSection(WorkflowExternalLspOptions.SectionName));
 
     // 注册 Prompt Plugin
     builder.Services.AddSingleton<IPromptPlugin>(sp =>
@@ -227,7 +230,19 @@ try
     builder.Services.AddScoped<IWorkflowTemplateContextCollector, WorkflowTemplateContextCollector>();
     builder.Services.AddScoped<IWorkflowTemplateWorkbenchAiClient, WorkflowTemplateWorkbenchAiClient>();
     builder.Services.AddScoped<IWorkflowTemplateWorkbenchService, WorkflowTemplateWorkbenchService>();
+    builder.Services.AddScoped<IWorkflowTemplateAnalysisService, WorkflowTemplateAnalysisService>();
     builder.Services.AddScoped<IWorkflowDiscoveryService, WorkflowDiscoveryService>();
+    builder.Services.AddSingleton<IWorkflowExternalLspClient, WorkflowExternalLspClient>();
+    builder.Services.AddScoped<IWorkflowLspAugmentService, WorkflowLspAugmentService>();
+    builder.Services.AddScoped<IWorkflowChapterSliceBuilder, WorkflowChapterSliceBuilder>();
+    builder.Services.AddScoped<IWorkflowDeepAnalysisService, WorkflowDeepAnalysisService>();
+    builder.Services.AddScoped<IWorkflowAnalysisPlannerHintAiClient, WorkflowAnalysisPlannerHintAiClient>();
+    builder.Services.AddScoped<IWorkflowAnalysisPlannerHintService, WorkflowAnalysisPlannerHintService>();
+    builder.Services.AddScoped<IWorkflowAnalysisTaskAiClient, WorkflowAnalysisTaskAiClient>();
+    builder.Services.AddSingleton<IWorkflowAnalysisTaskRuntimeReporter, WorkflowAnalysisTaskRuntimeReporter>();
+    builder.Services.AddScoped<IWorkflowAnalysisTaskRunner, WorkflowAnalysisTaskRunner>();
+    builder.Services.AddScoped<IWorkflowAnalysisQueueService, WorkflowAnalysisQueueService>();
+    builder.Services.AddScoped<IWorkflowAnalysisExecutionService, WorkflowAnalysisExecutionService>();
     builder.Services.AddScoped<IWikiGenerator, WikiGenerator>();
 
     // 注册缓存框架（默认内存实现）
@@ -270,6 +285,7 @@ try
     builder.Services.AddHostedService<RepositoryProcessingWorker>();
     builder.Services.AddHostedService<TranslationWorker>();
     builder.Services.AddHostedService<MindMapWorker>();
+    builder.Services.AddHostedService<WorkflowAnalysisWorker>();
 
     // 配置增量更新选项
     // Requirements: 6.2, 6.3, 6.6 - 可配置的更新间隔
